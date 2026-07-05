@@ -256,6 +256,8 @@ function addToCalendar(b, proof){
             b.facebook ? "FB: " + b.facebook : "",
             "Website booking"
         ].filter(Boolean).join(" · "),
+        bookedBy: "Website",                    // guest self-booked → logs as WEBSITE, not an admin
+        bookedAt: new Date().toISOString(),
         source: "website"
     });
     localStorage.setItem(KEY, JSON.stringify(arr));

@@ -148,7 +148,7 @@
   .sh-datefield, .sh-hours-field{ cursor:pointer; }
   .sh-search .sh-dateval{ display:block; }
   .sh-search .sh-dateval.ph{ color:#b4ac9c; }
-  .sh-cal{ position:absolute; top:calc(100% + 10px); left:0; width:min(100%,344px); background:#fff; border:1px solid var(--sh-line); border-radius:18px; box-shadow:0 22px 50px rgba(80,60,20,.20); padding:14px 16px 12px; z-index:80; }
+  .sh-cal{ position:absolute; top:calc(100% + 10px); left:0; width:322px; max-width:calc(100vw - 32px); background:#fff; border:1px solid var(--sh-line); border-radius:18px; box-shadow:0 22px 50px rgba(80,60,20,.20); padding:14px 16px 12px; z-index:80; }
   .sh-cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
   .sh-cal-head > span{ font-family:'Recoleta','Fraunces',Georgia,serif; font-weight:700; font-size:17px; }
   .sh-cal-nav{ border:none; background:#f6f1e7; width:32px; height:32px; border-radius:9px; cursor:pointer; font-size:18px; line-height:1; color:var(--sh-ink); }
@@ -157,11 +157,12 @@
   .sh-cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
   .sh-cal-dow span{ text-align:center; font-size:11px; color:#a09884; font-weight:700; padding:4px 0; }
   .sh-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
-  .sh-cal-grid button{ aspect-ratio:1/1; border:none; background:none; border-radius:9px; cursor:pointer; font-size:13.5px; color:var(--sh-ink); font-family:inherit; }
+  .sh-cal-grid button, .sh-cal-grid .empty, .sh-cal-grid .past{ height:38px; width:100%; display:flex; align-items:center; justify-content:center; border-radius:9px; font-size:13.5px; font-family:inherit; }
+  .sh-cal-grid button{ border:none; background:none; cursor:pointer; color:var(--sh-ink); padding:0; }
   .sh-cal-grid button:hover{ background:#f6f1e7; }
   .sh-cal-grid button.inrange{ background:#f3e8cf; border-radius:0; }
   .sh-cal-grid button.sel{ background:var(--sh-ink); color:#fff; font-weight:700; }
-  .sh-cal-grid .empty, .sh-cal-grid .past{ display:flex; align-items:center; justify-content:center; aspect-ratio:1/1; font-size:13.5px; color:#d3cabb; }
+  .sh-cal-grid .empty, .sh-cal-grid .past{ color:#d3cabb; }
   .sh-cal-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--sh-line); }
   .sh-cal-foot > span{ font-size:12.5px; color:var(--sh-muted); }
   .sh-cal-foot button{ border:none; background:none; color:var(--sh-gold); font-weight:600; font-size:13px; cursor:pointer; }
