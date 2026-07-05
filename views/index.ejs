@@ -109,7 +109,7 @@
   .sh-hero h1, .sh-promo h2, .sh-sec-head h2{ font-weight:800; }
   *, *::before, *::after{ box-sizing:border-box; }
   body{ background:var(--sh-bg); color:var(--sh-ink); font-family:'Inter',system-ui,-apple-system,sans-serif; margin:0; }
-  .sh-wrap{ max-width:1720px; margin:0 auto; padding-left:clamp(16px,3.5vw,28px); padding-right:clamp(16px,3.5vw,28px); }
+  .sh-wrap{ max-width:1600px; margin:0 auto; padding-left:clamp(16px,3.5vw,28px); padding-right:clamp(16px,3.5vw,28px); }
 
   /* nav — overrides the bare header{} rule in style.css (padding/white bg/shadow) */
   .sh-nav{ position:sticky; top:0; z-index:60; display:block; padding:0; box-shadow:none; background:rgba(250,246,239,.9); backdrop-filter:blur(8px); border-bottom:1px solid var(--sh-line); }
@@ -155,7 +155,7 @@
   .sh-hero-tag span{ display:block; color:var(--sh-gold); font-size:12px; margin-top:2px; }
 
   /* results (availability search output) */
-  #results{ max-width:1720px; margin:0 auto; padding:8px 24px 0; }
+  #results{ max-width:1600px; margin:0 auto; padding:8px 24px 0; }
   #results:empty{ display:none; padding:0; }
   #results h2{ font-family:'Recoleta','Fraunces',Georgia,serif; font-weight:700; font-size:30px; margin:14px 0 4px; }
 
@@ -169,7 +169,11 @@
 
   /* haven cards */
   .sh-cards{ display:grid; grid-template-columns:repeat(3,1fr); gap:22px; }
-  .sh-card{ background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 12px 26px rgba(60,45,20,.08); display:flex; flex-direction:column; }
+  .sh-card{ background:#fff; border-radius:18px; overflow:hidden; box-shadow:0 14px 34px rgba(45,35,20,.14); display:flex; flex-direction:column; transition:transform .22s ease, box-shadow .22s ease; }
+  .sh-card:hover{ transform:translateY(-6px); box-shadow:0 26px 50px rgba(45,35,20,.22); }
+  .sh-card:hover .sh-card-media img{ transform:scale(1.04); }
+  .sh-card-media{ overflow:hidden; }
+  .sh-card-media img{ transition:transform .35s ease; }
   .sh-card-media{ display:block; }
   .sh-card-media img{ width:100%; aspect-ratio:16/10; object-fit:cover; display:block; }
   .sh-card-body{ padding:16px 16px 18px; display:flex; flex-direction:column; gap:8px; flex:1; }
@@ -192,7 +196,7 @@
 
   /* footer */
   .sh-footer{ background:var(--sh-footer); border-top:1px solid var(--sh-line); }
-  .sh-footer-in{ max-width:1720px; margin:0 auto; padding:48px 24px 28px; display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:32px; }
+  .sh-footer-in{ max-width:1600px; margin:0 auto; padding:48px 24px 28px; display:grid; grid-template-columns:1.5fr 1fr 1fr; gap:32px; }
   .sh-foot-brand p{ color:var(--sh-muted); font-size:13px; line-height:1.6; max-width:290px; margin:12px 0 0; }
   .sh-foot-col h4{ color:#9a9384; font-size:11px; letter-spacing:.18em; text-transform:uppercase; margin:0 0 14px; font-weight:600; }
   .sh-foot-col a, .sh-foot-col span{ display:block; color:var(--sh-ink); text-decoration:none; font-size:14px; margin-bottom:10px; }
