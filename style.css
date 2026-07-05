@@ -145,7 +145,7 @@ button{
 
 .card img{
     display:block;
-    width:min(100%, 300px);   /* square photo, a bit smaller than the full card */
+    width:min(100%, 200px);   /* square photo — about half the card width */
     aspect-ratio:1 / 1;
     height:auto;
     object-fit:cover;
