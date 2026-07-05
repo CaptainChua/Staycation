@@ -12068,9 +12068,31 @@ function pageAllowed(page){
     return currentPerms().includes(page);
 }
 // hide nav items the current user can't access; redirect off a disallowed page
+let _rehealedUsers = false;
 function applyPermissions(){
     // partner mode is driven entirely by partners.js (no admin user required)
     if(window.__PARTNER__){ if(typeof applyPartnerChrome === "function") applyPartnerChrome(); return; }
+    // SELF-HEAL a stale/missing local user cache: if there IS a logged-in session but the local
+    // users list can't grant this user a single page (they're missing, or a stale copy shows them
+    // as a non-admin with no perms), re-pull the AUTHORITATIVE list from the server ONCE before
+    // hiding the whole sidebar / bouncing to login. This recovers a browser whose cached shph_users
+    // fell behind the server (which would otherwise leave the admin staring at an empty sidebar).
+    const _sessName = (localStorage.getItem("shph_current_user") || "").trim();
+    const _u0 = currentUserObj();
+    const _wouldBeEmpty = !_u0 || (!_u0.admin && (!_u0.perms || _u0.perms.length === 0));
+    if(_sessName && _wouldBeEmpty && !_rehealedUsers){
+        _rehealedUsers = true;
+        fetch("/api/kv/shph_users", { cache: "no-store" })
+            .then(r => r.ok ? r.json() : null)
+            .then(d => {
+                let arr = d && (Array.isArray(d) ? d : (d.value || d.data));
+                if(typeof arr === "string"){ try{ arr = JSON.parse(arr); }catch(e){} }
+                if(Array.isArray(arr) && arr.length){ try{ localStorage.setItem(USERS_KEY, JSON.stringify(arr)); }catch(e){} users = loadUsers(); }
+                applyPermissions();   // re-apply with the fresh list
+            })
+            .catch(() => { applyPermissions(); });
+        return;   // hold off hiding/redirect until the fresh list resolves
+    }
     // no recognised logged-in user → send to the login page instead of revealing anything
     if(!currentUserObj()){ window.location.href = window.__ON_PARTNER_PATH__ ? "/partner-login" : "/admin.html"; return; }
     const perms = currentPerms();
