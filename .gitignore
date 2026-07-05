@@ -11,9 +11,6 @@ data/
 # .env.*
 
 # Firebase service-account credentials — NEVER commit these
-serviceAccountKey.json
-*serviceAccount*.json
-firebase-adminsdk*.json
 
 # OS / editor cruft
 Thumbs.db
