@@ -5,10 +5,10 @@ node_modules/
 data/
 
 # logs & env
-*.log
-npm-debug.log*
-.env
-.env.*
+# *.log
+# npm-debug.log*
+# .env
+# .env.*
 
 # Firebase service-account credentials — NEVER commit these
 serviceAccountKey.json
