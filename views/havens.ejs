@@ -361,7 +361,8 @@ const BOOKINGS_KEY = "shph_bookings_v3";
 
 function loadBookings() {
     try {
-        return JSON.parse(localStorage.getItem(BOOKINGS_KEY)) || [];
+        // soft-deleted bookings must never block availability on the website
+        return (JSON.parse(localStorage.getItem(BOOKINGS_KEY)) || []).filter(b => b && !b.deleted);
     } catch (e) {
         return [];
     }
