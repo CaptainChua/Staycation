@@ -421,6 +421,7 @@ function renderPayment(b){
                     method: "POST", headers: { "Content-Type": "application/json" },
                     body: JSON.stringify({ to: b.email, booking: {
                         code: code, haven: b.haven,
+                        bookedOn: (function(){ const d = new Date(); return String(d.getMonth()+1).padStart(2,"0") + String(d.getDate()).padStart(2,"0") + d.getFullYear(); })(),   // MMDDYYYY (booked today)
                         checkin: fmtDate(b.checkinDate) + (b.checkinTime ? " · " + b.checkinTime : ""),
                         checkout: b.checkoutTime || fmtDate(b.checkoutDate),
                         stay: b.stayLabel || "",

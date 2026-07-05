@@ -397,11 +397,15 @@ apiRouter.post("/send-confirmation", async (req, res) => {
     let nodemailer;
     try { nodemailer = require("nodemailer"); } catch (e) { return res.status(200).json({ ok: false, error: "not_installed" }); }
     const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+    // subject = "MMDDYYYY - CODE" (date it was booked · booking #). Prefer the client's booked date;
+    // else fall back to the server clock shifted to PH time (UTC+8).
+    const _ph = new Date(Date.now() + 8 * 3600 * 1000);
+    const _bookedOn = booking.bookedOn || (String(_ph.getUTCMonth() + 1).padStart(2, "0") + String(_ph.getUTCDate()).padStart(2, "0") + _ph.getUTCFullYear());
     await transporter.sendMail({
       from: `"Staycation Haven PH" <${user}>`,
       to: String(to),
-      bcc: process.env.OWNER_EMAIL || "staycationhavenph@gmail.com",   // owner gets a copy of every confirmation
-      subject: `Your Staycation Haven PH booking — #${String(booking.code || "").slice(0, 10)}`,
+      bcc: process.env.OWNER_EMAIL || "staycationhavenph@gmail.com, piacarlaclav@gmail.com",   // owner copies
+      subject: `${_bookedOn} - ${String(booking.code || "").slice(0, 12)}`,
       html: _confirmationHtml(booking)
     });
     res.json({ ok: true });
