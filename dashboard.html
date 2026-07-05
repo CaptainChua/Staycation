@@ -8125,7 +8125,7 @@ document.addEventListener("click", e => {
 
 /* ---------- Security Deposit: check-outs + deposit to return on a date ---------- */
 /* ---------- Collection Reports ---------- */
-let crMode = "today";   // today | yesterday | month | custom
+let crMode = (function(){ try{ return localStorage.getItem("shph_cr_mode") || "today"; }catch(e){ return "today"; } })();   // today | yesterday | month | custom — remembered across refresh
 function _crRange(){
     const t = today();
     if(crMode === "yesterday"){ const y = iso(addDays(t, -1)); return { start:y, end:y }; }
@@ -8137,8 +8137,8 @@ function _crRange(){
     }
     return { start: iso(t), end: iso(t) };
 }
-function crQuick(m){ crMode = m; renderCollections(); }
-function crCustom(){ crMode = "custom"; renderCollections(); }
+function crQuick(m){ crMode = m; try{ localStorage.setItem("shph_cr_mode", m); }catch(e){} renderCollections(); }
+function crCustom(){ crMode = "custom"; try{ localStorage.setItem("shph_cr_mode", "custom"); localStorage.setItem("shph_cr_from", (document.getElementById("crFrom")||{}).value||""); localStorage.setItem("shph_cr_to", (document.getElementById("crTo")||{}).value||""); }catch(e){} renderCollections(); }
 // open a booking's Edit modal on the Calendar / Bookings page (from a Booking ID link)
 function crEditBooking(id){
     if(typeof showPage === "function") showPage("calendar");
@@ -8159,6 +8159,11 @@ function _crExtra(b){
          + (Number(b.extend) || 0) * PRICING.extendPerHr;
 }
 function renderCollections(){
+    // restore a remembered custom range after a refresh (the inputs are empty on load)
+    if(crMode === "custom"){
+        const fI = document.getElementById("crFrom"), tI = document.getElementById("crTo");
+        try{ if(fI && !fI.value) fI.value = localStorage.getItem("shph_cr_from") || ""; if(tI && !tI.value) tI.value = localStorage.getItem("shph_cr_to") || ""; }catch(e){}
+    }
     const { start, end } = _crRange();
     const fromI = document.getElementById("crFrom"), toI = document.getElementById("crTo");
     if(crMode !== "custom"){ if(fromI) fromI.value = start; if(toI) toI.value = end; }

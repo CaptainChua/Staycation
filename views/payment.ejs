@@ -219,15 +219,23 @@ function payResizeImage(file, cb){
     reader.readAsDataURL(file);
 }
 
-function addToCalendar(b, proof){
+async function addToCalendar(b, proof){
     const KEY = "shph_bookings_v3";
     let arr;
     try { arr = JSON.parse(localStorage.getItem(KEY)) || []; } catch(e){ arr = []; }
 
-    // avoid duplicates if the button is somehow clicked twice
+    // Durable per-record write to the SERVER so a website booking is NEVER lost. Previously the
+    // booking only went to localStorage and relied on a background sync that's lost if the page
+    // closes — while the confirmation email (a server call) always sent, so a guest could get an
+    // email with no booking recorded. The server offloads the base64 proof to a tiny /img ref.
+    async function persist(rec){
+        try{ const res = await fetch("/api/list/" + KEY, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); return res.ok; }catch(e){ return false; }
+    }
+
+    // avoid duplicates if the button is clicked twice / retried after a failed save — re-send to the server
     const dupB = arr.find(x => x.source === "website" && x.haven === b.haven &&
         x.checkin === b.checkinDate && x.contact === (b.contact || ""));
-    if(dupB) return dupB.id;
+    if(dupB) return (await persist(dupB)) ? dupB.id : -1;
 
     // refuse to write a booking that clashes with an existing one
     if(bookingConflicts(arr, b)) return false;
@@ -243,7 +251,7 @@ function addToCalendar(b, proof){
     const stayHours = Number(b.stayHours) || parseInt(b.stayLabel, 10) || 21;
     const slot = b.slot || (stayHours === 6 ? (/pm/i.test(b.checkinTime || "") ? "evening" : "morning") : "");
 
-    arr.push({
+    const rec = {
         id: nextId,
         bookingNo: "SH-" + String(seqNo).padStart(4, "0"),
         haven: b.haven,
@@ -273,9 +281,10 @@ function addToCalendar(b, proof){
         bookedAt: new Date().toISOString(),
         dpDate: (function(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); })(),   // downpayment counts on the booking-made day
         source: "website"
-    });
-    localStorage.setItem(KEY, JSON.stringify(arr));
-    return nextId;
+    };
+    arr.push(rec);
+    localStorage.setItem(KEY, JSON.stringify(arr));   // local copy + background-sync backup
+    return (await persist(rec)) ? nextId : -1;         // require the server to confirm; -1 = save failed, retry
 }
 const raw = localStorage.getItem("shph_confirmed_booking");
 
@@ -395,13 +404,17 @@ function renderPayment(b){
         });
     }
 
-    document.getElementById("paidBtn").addEventListener("click", function(){
+    document.getElementById("paidBtn").addEventListener("click", async function(){
         if(!isCash && !proofData){
             alert("Please upload a screenshot of your payment before completing.");
             return;
         }
-        const bookingNo = addToCalendar(b, proofData);
-        if(!bookingNo){
+        const paidBtn = document.getElementById("paidBtn");
+        const _label = paidBtn.textContent;
+        paidBtn.disabled = true; paidBtn.textContent = "Saving your booking…";
+        let bookingNo;
+        try{ bookingNo = await addToCalendar(b, proofData); }catch(e){ bookingNo = -1; }
+        if(bookingNo === false){
             container.innerHTML = `
                 <div class="booknow-success">
                     <h2>😔 That slot was just booked</h2>
@@ -411,6 +424,12 @@ function renderPayment(b){
                     <a class="home-link" href="havens.html${b.havenId ? "?id=" + b.havenId : ""}">Pick another time</a>
                 </div>`;
             window.scrollTo(0, 0);
+            return;
+        }
+        if(bookingNo === -1 || !bookingNo){
+            // server didn't confirm the save — let the guest retry instead of showing a false success
+            paidBtn.disabled = false; paidBtn.textContent = _label;
+            alert("Sorry, we couldn't save your booking — please check your internet connection and tap “I've completed payment” again. Your screenshot is still attached.");
             return;
         }
         localStorage.removeItem("shph_confirmed_booking");
