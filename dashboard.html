@@ -1303,7 +1303,6 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 
     <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
-    <div class="nav-item" data-page="paymentapproval" onclick="showPage('paymentapproval')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/><path d="m14 16 1.6 1.6L19 14"/></svg></span> Payment Approval <span class="nav-badge" id="paymentApprovalBadge"></span></div>
     <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
     <div class="nav-item" data-page="violations" onclick="showPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
 
@@ -1436,78 +1435,6 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div id="approvalList"></div>
 </div>
 
-<!-- ===== Payment Approval (balance / add-on collections made today) ===== -->
-<div class="page" id="page-paymentapproval">
-<style>
-  #page-paymentapproval .ap-empty{ background:#fff; border:1px solid var(--hv-line); border-radius:16px; text-align:center; color:var(--hv-muted); padding:40px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
-  #page-paymentapproval .ap-card{ padding:0; overflow:hidden; }
-  #page-paymentapproval .ap-head{ display:flex; align-items:flex-start; justify-content:space-between; gap:14px; flex-wrap:wrap; padding:18px 22px; background:#faf6ee; border-bottom:1px solid var(--hv-line); }
-  #page-paymentapproval .ap-head h3{ font-family:'Playfair Display',Georgia,serif; font-size:19px; font-weight:700; margin:0; color:var(--hv-ink); display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
-  #page-paymentapproval .ap-cat{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; letter-spacing:.4px; text-transform:uppercase; padding:3px 9px; border-radius:20px; }
-  #page-paymentapproval .ap-cat.balance{ background:#e7eef6; color:#2b6cb0; }
-  #page-paymentapproval .ap-cat.addon{ background:#efe7f6; color:#7a52a8; }
-  #page-paymentapproval .ap-sub{ color:var(--hv-muted); font-size:13px; margin-top:4px; }
-  #page-paymentapproval .ap-actions{ display:flex; gap:10px; }
-  #page-paymentapproval .ap-del{ color:#b91c1c; border-color:#f0d4d4; }
-  #page-paymentapproval .ap-del:hover{ background:#fdf3f3; border-color:#e6b8b8; }
-  #page-paymentapproval .ap-body{ display:grid; grid-template-columns:1fr 280px; gap:24px; padding:20px 22px; }
-  @media(max-width:820px){ #page-paymentapproval .ap-body{ grid-template-columns:1fr; } }
-  #page-paymentapproval .ap-row{ display:flex; justify-content:space-between; gap:14px; padding:8px 0; border-bottom:1px solid var(--hv-line); font-size:14px; color:var(--hv-muted); }
-  #page-paymentapproval .ap-row:last-child{ border-bottom:none; }
-  #page-paymentapproval .ap-row b{ color:var(--hv-ink); text-align:right; }
-  #page-paymentapproval .ap-proof-label{ font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; margin-bottom:8px; }
-  #page-paymentapproval .ap-proof{ width:100%; max-height:300px; object-fit:contain; border:1px solid var(--hv-line); border-radius:12px; background:#faf7f2; cursor:zoom-in; display:block; }
-  #page-paymentapproval .ap-noproof{ border:1.5px dashed #e0d3bf; border-radius:12px; padding:30px 14px; text-align:center; color:#b89a78; font-size:13px; font-weight:600; background:#faf7f2; }
-  #page-paymentapproval .ap-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:18px; }
-  #page-paymentapproval .ap-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
-  #page-paymentapproval .ap-seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
-  #page-paymentapproval .ap-seg button:hover{ background:#faf6ee; }
-  #page-paymentapproval .ap-seg button.active{ background:var(--hv-ink); color:#fff; }
-  #page-paymentapproval .ap-flag{ font-family:'Mulish',sans-serif; font-size:11px; font-weight:700; padding:3px 10px; border-radius:20px; }
-  #page-paymentapproval .ap-flag.approved{ background:#e7f3ec; color:#2e7d4f; }
-  #page-paymentapproval .ap-flag.pending{ background:#f6ecd9; color:#9a7700; }
-  #page-paymentapproval .ap-range{ display:inline-flex; align-items:center; font-size:13px; }
-  #page-paymentapproval .date-pill{ min-width:150px; }
-  #page-paymentapproval #ppDpPopup{ left:auto; right:0; transform:none; top:48px; }
-  #page-paymentapproval #ppDpPopup::before{ left:auto; right:30px; transform:rotate(45deg); }
-</style>
-    <div class="topbar" style="margin-bottom:6px;">
-        <h2 style="font-size:20px;">Payment Approval <span class="muted" id="paymentApprovalScope" style="font-size:14px;"></span></h2>
-    </div>
-    <p class="muted" style="margin:0 0 16px;">Balance and add-on payments land here (showing <b>Today</b> by default — switch the date filter for other days). Check the payment screenshot, then <b>Approve</b> it — or <b>Delete</b> the collection if the proof isn't legit. New <b>bookings</b> (website or manual) are reviewed on <b>Booking Approval</b> instead.</p>
-    <div class="ap-toolbar">
-        <div class="ap-seg" id="paStatusSeg">
-            <button type="button" data-st="all" class="active" onclick="setPaStatus('all')">All</button>
-            <button type="button" data-st="pending" onclick="setPaStatus('pending')">Pending</button>
-            <button type="button" data-st="approved" onclick="setPaStatus('approved')">Approved</button>
-        </div>
-        <div class="ap-seg" id="paDateSeg">
-            <button type="button" data-dt="all" onclick="setPaDate('all')">All dates</button>
-            <button type="button" data-dt="today" class="active" onclick="setPaDate('today')">Today</button>
-            <button type="button" data-dt="yesterday" onclick="setPaDate('yesterday')">Yesterday</button>
-            <button type="button" data-dt="range" onclick="setPaDate('range')">Date range</button>
-        </div>
-        <span class="ap-range" id="paRange" style="display:none;">
-            <div class="dp-wrap">
-                <span class="date-pill" id="ppRangeLabel" onclick="openPpPicker(event)" title="Pick a date range">Pick dates</span>
-                <div class="dp-popup" id="ppDpPopup" onclick="event.stopPropagation()">
-                    <div class="dp-head">
-                        <button type="button" onclick="ppPickerNav(-1)">‹</button>
-                        <span id="ppDpTitle"></span>
-                        <button type="button" onclick="ppPickerNav(1)">›</button>
-                    </div>
-                    <div class="dp-grid" id="ppDpGrid"></div>
-                    <div class="dp-hint" id="ppDpHint"></div>
-                    <div class="dp-foot">
-                        <span onclick="ppDpClear()">Clear</span>
-                        <span onclick="ppDpToday()">Today</span>
-                    </div>
-                </div>
-            </div>
-        </span>
-    </div>
-    <div id="paymentApprovalList"></div>
-</div>
 
 <!-- ===== Today's Booking ===== -->
 <div class="page active" id="page-today">
@@ -5371,18 +5298,31 @@ function updateTodayBadge(){
     const n = bookings.filter(b => b && !b.cancelled && !b.deleted && b.checkin === t).length;
     badge.textContent = n ? String(n) : "";
 }
-// Collection Reports badge = number of payments collected TODAY (downpayments + balance/add-on payments)
+// Collection Reports badge = payments still to VERIFY. Recent collections (last 7 days) — a
+// downpayment or a balance/add-on payment — that haven't been marked Verified or Not Verified yet.
+// A new booking's downpayment (manual OR website) lands here the moment it's added, so this is the
+// running "how many payments do I still need to check" count. Marking a row in Collection Reports
+// (Verified / Not Verified) clears it from the count. Windowed to 7 days so old history never floods it.
 function updateCollectionsBadge(){
     const badge = document.getElementById("collectionsBadge");
     if(!badge) return;
-    const t = iso(today());
+    const endIso = iso(today());
+    const startIso = iso(addDays(today(), -6));   // today + previous 6 days = last 7 days
     let n = 0;
     bookings.forEach(b => {
         if(!b || b.deleted) return;
         if(b.cancelled && b.dpRefunded) return;
         const dp = Number(b.downpayment) || 0;
-        if(dp > 0){ const d = (typeof _crDpDay === "function") ? _crDpDay(b) : null; if(d === t) n++; }
-        (b.payments || []).forEach(p => { const amt = Number(p.amount) || 0; if(!amt) return; const day = p.at ? iso(new Date(p.at)) : null; if(day === t) n++; });
+        if(dp > 0 && !b.dpVerified){   // downpayment not yet reviewed
+            const d = (typeof _crDpDay === "function") ? _crDpDay(b) : null;
+            if(d && d >= startIso && d <= endIso) n++;
+        }
+        (b.payments || []).forEach(p => {
+            const amt = Number(p.amount) || 0; if(!amt) return;
+            if(p.verified) return;     // already Verified / Not Verified
+            const day = p.at ? iso(new Date(p.at)) : null;
+            if(day && day >= startIso && day <= endIso) n++;
+        });
     });
     badge.textContent = n ? String(n) : "";
 }
@@ -7491,7 +7431,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
@@ -7506,7 +7446,6 @@ function showPage(page){
     // the timeline needs the element visible to measure cell widths
     if(page === "today") renderToday();
     if(page === "approval") renderApproval();
-    if(page === "paymentapproval") renderPaymentApproval();
     if(page === "deposit") renderDeposit();
     if(page === "violations" && typeof renderViolations === "function") renderViolations();
     if(page === "collections" && typeof renderCollections === "function") renderCollections();
@@ -8712,7 +8651,6 @@ function renderAll(){
     renderTimeline();
     renderTable();
     if(typeof updateApprovalBadge === "function") updateApprovalBadge();
-    if(typeof updatePaymentApprovalBadge === "function") updatePaymentApprovalBadge();
     if(typeof updateDepositBadge === "function") updateDepositBadge();
     if(typeof updateTodayBadge === "function") updateTodayBadge();
     if(typeof updateCollectionsBadge === "function") updateCollectionsBadge();
@@ -12180,7 +12118,6 @@ const DASH_PAGES = [
     { key:"today",     label:"Today's Booking" },
     { key:"addbooking", label:"Add Booking" },
     { key:"approval",  label:"Booking Approval" },
-    { key:"paymentapproval", label:"Payment Approval" },
     { key:"deposit",   label:"Security Deposit" },
     { key:"violations", label:"Violations &amp; Damages" },
     { key:"finance",   label:"Finance" },
@@ -12469,6 +12406,9 @@ applyPermissions();
 document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
 
 // reopen the last page the admin was on (instead of resetting to Finance)
+// Payment Approval was removed (its job is now done on Collection Reports) — send anyone whose last
+// page was Payment Approval to Collection Reports instead of a now-inaccessible page.
+try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") localStorage.setItem("shph_dashboard_page", "collections"); }catch(e){}
 const savedPage = localStorage.getItem("shph_dashboard_page");
 if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
 applyPermissions();
