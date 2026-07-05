@@ -121,7 +121,8 @@
   .sh-links{ display:flex; gap:28px; }
   .sh-links a{ margin:0; text-decoration:none; color:var(--sh-ink); font-size:14px; font-weight:400; }
   .sh-links a:hover{ color:var(--sh-gold); }
-  .sh-burger{ display:none; align-items:center; justify-content:center; width:44px; height:44px; border-radius:12px; background:#fff; border:1px solid var(--sh-line); color:var(--sh-ink); cursor:pointer; flex:none; }
+  .sh-burger{ display:none; flex-direction:column; align-items:center; justify-content:center; gap:4px; width:44px; height:44px; border-radius:12px; background:#fff; border:1px solid var(--sh-line); cursor:pointer; flex:none; padding:0; }
+  .sh-burger span{ display:block; width:20px; height:2px; border-radius:2px; background:var(--sh-ink); }
   .sh-burger:hover{ background:#f6f1e7; }
 
   /* hero — matches the design: 1fr 1.05fr, 56px gap, copy vertically centered */
@@ -232,9 +233,10 @@
   .sh-foot-bar{ border-top:1px solid var(--sh-line); text-align:center; padding:16px; color:#9a9384; font-size:12.5px; }
 
   @media(max-width:900px){
-    .sh-hero{ padding-top:28px; }
-    .sh-hero-grid{ grid-template-columns:1fr; gap:24px; }
-    .sh-hero-media{ order:-1; height:auto; min-height:0; aspect-ratio:16/11; }   /* photo on top */
+    .sh-hero{ padding-top:20px; padding-bottom:26px; }
+    .sh-hero-grid{ grid-template-columns:1fr; gap:18px; }
+    /* photo on top, FIXED height (a fixed height can't collapse the way aspect-ratio can on iOS) */
+    .sh-hero-media{ order:-1; height:clamp(200px,42vw,320px); min-height:0; }
     .sh-search{ max-width:none; }
     .sh-cards{ grid-template-columns:repeat(2,1fr); }
     .sh-footer-in{ grid-template-columns:1fr 1fr; }
@@ -242,15 +244,23 @@
   }
   /* mobile header → hamburger menu (links become a dropdown) */
   @media(max-width:760px){
-    .sh-burger{ display:inline-flex; }
+    .sh-burger{ display:flex; }
     .sh-links{ display:none; position:absolute; top:100%; right:clamp(16px,4vw,48px); margin-top:8px; flex-direction:column; gap:0; background:#fff; border:1px solid var(--sh-line); border-radius:14px; box-shadow:0 18px 40px rgba(80,60,20,.18); padding:8px; min-width:190px; z-index:75; }
     .sh-links.show{ display:flex; }
     .sh-links a{ padding:12px 14px; border-radius:10px; font-size:15px; }
     .sh-links a:hover{ background:#f6f1e7; color:var(--sh-ink); }
   }
+  /* phone: tighten the hero so the photo + copy + search all fit on one screen */
   @media(max-width:640px){
-    .sh-hero h1{ font-size:clamp(30px,8.6vw,44px); }
-    .sh-hero-media{ aspect-ratio:16/12; }
+    .sh-hero{ padding-top:14px; padding-bottom:22px; }
+    .sh-hero-grid{ gap:16px; }
+    .sh-hero-media{ height:clamp(180px,44vw,240px); }
+    .sh-eyebrow{ font-size:11px; letter-spacing:.16em; margin-bottom:12px; }
+    .sh-hero h1{ font-size:clamp(26px,7.4vw,36px); line-height:1.06; margin:0 0 12px; }
+    .sh-lead{ font-size:15px; line-height:1.55; margin:0 0 18px; }
+    .sh-search{ padding:8px; }
+    .sh-search .search-item{ padding:12px 14px; }
+    .sh-cta{ height:52px; }
     /* "Our Havens" → swipeable card carousel */
     .sh-cards{ display:flex; overflow-x:auto; gap:16px; scroll-snap-type:x mandatory; -webkit-overflow-scrolling:touch; padding:2px 2px 10px; }
     .sh-card{ flex:0 0 84%; scroll-snap-align:start; }
@@ -277,7 +287,7 @@
       <a href="#promo">Promos</a>
       <a href="#contact">Contact</a>
     </nav>
-    <button class="sh-burger" aria-label="Menu" onclick="shToggleNav(event)"><svg viewBox="0 0 24 24" width="20" height="20" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"><path d="M4 7h16M4 12h16M4 17h16"/></svg></button>
+    <button class="sh-burger" aria-label="Menu" onclick="shToggleNav(event)"><span></span><span></span><span></span></button>
   </div>
 </header>
 
