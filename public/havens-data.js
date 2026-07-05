@@ -38,7 +38,7 @@ const DEFAULT_HAVENS = [
 
 const STORAGE_KEY = "staycation_havens";
 
-/*function loadHavens() {
+function loadHavens() {
     const saved = localStorage.getItem(STORAGE_KEY);
     if (saved) {
         try {
