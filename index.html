@@ -92,12 +92,18 @@
      guest selector and live haven cards keep their original hooks.
      ============================================================ -->
 <style>
+  /* self-hosted Recoleta (the design's headline font) — single Black weight file */
+  @font-face{
+    font-family:'Recoleta';
+    src:url('/fonts/RecoletaAlt-Black.ttf') format('truetype');
+    font-weight:400 900; font-style:normal; font-display:swap;
+  }
   :root{
     --sh-bg:#faf6ef; --sh-card:#ffffff; --sh-ink:#1b1a17; --sh-muted:#6f6a60;
     --sh-gold:#b1832f; --sh-gold-2:#c99a3f; --sh-line:#ece4d5; --sh-footer:#f2ece0;
   }
-  /* bold high-contrast serif for headings + brand, to match the design */
-  .sh-brand, .sh-badge, .sh-hero h1, #results h2, .sh-sec-head h2, .sh-card-head h3, .sh-promo h2{ font-family:'Fraunces', Georgia, 'Times New Roman', serif; }
+  /* headline serif — Recoleta (Fraunces is the fallback if the font can't load) */
+  .sh-brand, .sh-badge, .sh-hero h1, #results h2, .sh-sec-head h2, .sh-card-head h3, .sh-promo h2{ font-family:'Recoleta', 'Fraunces', Georgia, 'Times New Roman', serif; }
   .sh-hero h1, .sh-promo h2, .sh-sec-head h2{ font-weight:800; }
   *, *::before, *::after{ box-sizing:border-box; }
   body{ background:var(--sh-bg); color:var(--sh-ink); font-family:'Inter',system-ui,-apple-system,sans-serif; margin:0; }
