@@ -230,8 +230,11 @@ async function addToCalendar(b, proof){
         try{ const res = await fetch("/api/list/" + KEY, { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); return res.ok; }catch(e){ return false; }
     }
 
-    // avoid duplicates if the button is clicked twice / retried after a failed save — re-send to the server
-    const dupB = arr.find(x => x.source === "website" && x.haven === b.haven &&
+    // avoid duplicates if the button is clicked twice / retried after a failed save — re-send to the server.
+    // MUST ignore deleted/cancelled records: a soft-deleted past booking for the same haven/date/contact is
+    // NOT a duplicate — treating it as one re-saves the tombstone (stays deleted) and hands back its id, so the
+    // guest gets a confirmation + email but no booking is ever created (and always the SAME code). Skip them.
+    const dupB = arr.find(x => !x.deleted && !x.cancelled && x.source === "website" && x.haven === b.haven &&
         x.checkin === b.checkinDate && x.contact === (b.contact || ""));
     if(dupB) return (await persist(dupB)) ? dupB.id : -1;
 
