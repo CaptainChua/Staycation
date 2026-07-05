@@ -12442,6 +12442,8 @@ try{
                         const _prevPage = localStorage.getItem("shph_dashboard_page");
                         if(typeof showPage === "function") showPage("calendar");
                         if(typeof openModal === "function") openModal(_b.id);
+                        // opened from Collection Reports to CHECK the payment → land on the Proof of Payment tab
+                        if(typeof bkGoPage === "function") bkGoPage(2);
                         try{ if(_prevPage) localStorage.setItem("shph_dashboard_page", _prevPage); else localStorage.removeItem("shph_dashboard_page"); }catch(e){}
                     }
                 }
