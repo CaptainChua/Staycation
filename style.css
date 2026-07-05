@@ -54,7 +54,7 @@ nav a{
 }
 
 .hero{
-    padding:80px 20px;
+    padding:80px 20px 24px;   /* less gap below the search bar */
     text-align:center;
 }
 
@@ -108,7 +108,7 @@ button{
 }
 
 .featured{
-    padding:80px 50px;
+    padding:32px 50px 80px;   /* less gap above "Our Havens" */
 }
 
 #results:empty{
