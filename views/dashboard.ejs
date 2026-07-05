@@ -1731,8 +1731,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
           <input type="text" id="w_facebook" placeholder="https://facebook.com/...">
         </label>
       </div>
-      <label>Viber link (or tel:)
-        <input type="text" id="w_viber" placeholder="viber://chat?number=%2B639...">
+      <label>TikTok link
+        <input type="text" id="w_tiktok" placeholder="https://tiktok.com/@yourhandle">
       </label>
     </div>
   </div>
@@ -11961,7 +11961,7 @@ function fillWebsiteSettings(){
     set("w_heroEyebrow", site.heroEyebrow);   set("w_heroTitle", site.heroTitle);   set("w_heroSubtitle", site.heroSubtitle);
     set("w_promoEyebrow", site.promoEyebrow); set("w_promoTitle", site.promoTitle); set("w_promoButton", site.promoButton);
     set("w_footerTagline", site.footerTagline); set("w_footerEmail", site.footerEmail);
-    set("w_instagram", site.instagram); set("w_facebook", site.facebook); set("w_viber", site.viber);
+    set("w_instagram", site.instagram); set("w_facebook", site.facebook); set("w_tiktok", site.tiktok);
     const sel = document.getElementById("w_heroHavenId");
     if(sel){
         const havens = (typeof loadHavens === "function") ? loadHavens().filter(h => h.live !== false) : [];
@@ -11979,7 +11979,7 @@ function saveWebsiteSettings(){
         heroHavenId: val("w_heroHavenId"),
         promoEyebrow: val("w_promoEyebrow"), promoTitle: val("w_promoTitle"),   promoButton: val("w_promoButton"),
         footerTagline: val("w_footerTagline"), footerEmail: val("w_footerEmail"),
-        instagram: val("w_instagram"), facebook: val("w_facebook"), viber: val("w_viber")
+        instagram: val("w_instagram"), facebook: val("w_facebook"), tiktok: val("w_tiktok")
     });
     saveSettings(s);
     if(typeof logActivity === "function") logActivity("updated website homepage copy");

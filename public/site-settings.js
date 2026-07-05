@@ -49,7 +49,7 @@ const DEFAULT_SETTINGS = {
         footerEmail: "hello@staycationhaven.ph",
         instagram: "",
         facebook: "",
-        viber: ""
+        tiktok: ""
     },
     downpayment: [
         { maxDays: 2,  amount: 500 },    // 1–2 days

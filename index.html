@@ -356,7 +356,7 @@
       <h4>Get in touch</h4>
       <a href="#" id="shFootIg">Instagram</a>
       <a href="#" id="shFootFb">Facebook</a>
-      <a href="#" id="shFootViber">Viber</a>
+      <a href="#" id="shFootTiktok">TikTok</a>
       <a href="mailto:hello@staycationhaven.ph" id="shFootEmail">hello@staycationhaven.ph</a>
     </div>
   </div>
@@ -388,7 +388,7 @@
     if(site.footerEmail){ const em = document.getElementById("shFootEmail"); if(em){ em.textContent = site.footerEmail; em.href = "mailto:" + site.footerEmail; } }
     setLink("shFootIg", site.instagram);
     setLink("shFootFb", site.facebook);
-    setLink("shFootViber", site.viber);
+    setLink("shFootTiktok", site.tiktok);
 
     // hero feature = the admin-chosen haven (site.heroHavenId), else the first live haven
     const feat = (site.heroHavenId && havens.find(h => String(h.id) === String(site.heroHavenId))) || havens[0];
