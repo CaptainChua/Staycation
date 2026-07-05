@@ -249,9 +249,9 @@
   <div class="sh-hero-grid">
 
     <div class="sh-hero-copy">
-      <div class="sh-eyebrow">Comfortable · Affordable · Memorable</div>
-      <h1>Your quiet escape<br>above Panay Ave.</h1>
-      <p class="sh-lead">Thoughtfully styled units at Mplace Tower D, Quezon City — from ₱999 a night.</p>
+      <div class="sh-eyebrow" id="shHeroEyebrow">Comfortable · Affordable · Memorable</div>
+      <h1 id="shHeroTitle">Your quiet escape<br>above Panay Ave.</h1>
+      <p class="sh-lead" id="shHeroLead">Thoughtfully styled units at Mplace Tower D, Quezon City — from ₱999 a night.</p>
 
       <div class="sh-search">
         <div class="sh-search-grid">
@@ -331,10 +331,10 @@
 <section class="sh-promo sh-wrap" id="promo">
   <div class="sh-promo-in">
     <div>
-      <div class="sh-promo-eyebrow">Limited promo</div>
-      <h2>Stay 3 nights, get the 4th on us — book direct this month.</h2>
+      <div class="sh-promo-eyebrow" id="shPromoEyebrow">Limited promo</div>
+      <h2 id="shPromoTitle">Stay 3 nights, get the 4th on us — book direct this month.</h2>
     </div>
-    <a class="sh-promo-btn" href="#our-havens">See all promos</a>
+    <a class="sh-promo-btn" id="shPromoBtn" href="#our-havens">See all promos</a>
   </div>
 </section>
 
@@ -342,7 +342,7 @@
   <div class="sh-footer-in">
     <div class="sh-foot-brand">
       <a class="sh-brand" href="index.html"><span class="sh-badge">S</span> Staycation Haven PH</a>
-      <p>Mplace Tower D, Panay Ave, Quezon City. Comfortable, affordable and memorable staycations.</p>
+      <p id="shFootTagline">Mplace Tower D, Panay Ave, Quezon City. Comfortable, affordable and memorable staycations.</p>
     </div>
     <div class="sh-foot-col">
       <h4>Explore</h4>
@@ -353,10 +353,10 @@
     </div>
     <div class="sh-foot-col">
       <h4>Get in touch</h4>
-      <a href="#">Instagram</a>
-      <a href="#">Facebook</a>
-      <a href="#">Viber</a>
-      <a href="mailto:hello@staycationhaven.ph">hello@staycationhaven.ph</a>
+      <a href="#" id="shFootIg">Instagram</a>
+      <a href="#" id="shFootFb">Facebook</a>
+      <a href="#" id="shFootViber">Viber</a>
+      <a href="mailto:hello@staycationhaven.ph" id="shFootEmail">hello@staycationhaven.ph</a>
     </div>
   </div>
   <div class="sh-foot-bar">© 2026 Staycation Haven PH · All rights reserved</div>
@@ -373,8 +373,24 @@
 
     const havens = ((typeof loadHavens === "function") ? loadHavens() : []).filter(h => h.live !== false);
 
-    // hero feature = the first live haven
-    const feat = havens[0];
+    // ---- editable site copy (dashboard → Website page → shph_settings.site) ----
+    const site = (function(){ try{ return (JSON.parse(localStorage.getItem("shph_settings")) || {}).site || {}; }catch(e){ return {}; } })();
+    const setText = (id, v) => { const el = document.getElementById(id); if(el && v != null && String(v).trim() !== "") el.textContent = String(v); };
+    const setLink = (id, v) => { const el = document.getElementById(id); if(el && v != null && String(v).trim() !== "") el.href = String(v); };
+    setText("shHeroEyebrow", site.heroEyebrow);
+    setText("shHeroTitle", site.heroTitle);        // plain text (wraps naturally)
+    setText("shHeroLead", site.heroSubtitle);
+    setText("shPromoEyebrow", site.promoEyebrow);
+    setText("shPromoTitle", site.promoTitle);
+    setText("shPromoBtn", site.promoButton);
+    setText("shFootTagline", site.footerTagline);
+    if(site.footerEmail){ const em = document.getElementById("shFootEmail"); if(em){ em.textContent = site.footerEmail; em.href = "mailto:" + site.footerEmail; } }
+    setLink("shFootIg", site.instagram);
+    setLink("shFootFb", site.facebook);
+    setLink("shFootViber", site.viber);
+
+    // hero feature = the admin-chosen haven (site.heroHavenId), else the first live haven
+    const feat = (site.heroHavenId && havens.find(h => String(h.id) === String(site.heroHavenId))) || havens[0];
     if(feat){
         const img = document.getElementById("shHeroImg");
         if(img){ img.src = feat.image || ""; img.alt = feat.name || "Featured haven"; }

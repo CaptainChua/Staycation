@@ -36,6 +36,21 @@ const DEFAULT_SETTINGS = {
     customAddons: [],          // [{ name, price, perPax }]
     // promotions shown on the website ([{ title, desc, discount, type, code, active }])
     promos: [],
+    // editable copy for the public homepage (index.html) — managed on the dashboard's "Website" page
+    site: {
+        heroEyebrow: "Comfortable · Affordable · Memorable",
+        heroTitle: "Your quiet escape above Panay Ave.",
+        heroSubtitle: "Thoughtfully styled units at Mplace Tower D, Quezon City — from ₱999 a night.",
+        heroHavenId: "",                 // "" = feature the first live haven
+        promoEyebrow: "Limited promo",
+        promoTitle: "Stay 3 nights, get the 4th on us — book direct this month.",
+        promoButton: "See all promos",
+        footerTagline: "Mplace Tower D, Panay Ave, Quezon City. Comfortable, affordable and memorable staycations.",
+        footerEmail: "hello@staycationhaven.ph",
+        instagram: "",
+        facebook: "",
+        viber: ""
+    },
     downpayment: [
         { maxDays: 2,  amount: 500 },    // 1–2 days
         { maxDays: 4,  amount: 1000 },   // 3–4 days

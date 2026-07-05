@@ -1299,6 +1299,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
     <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
     <div class="nav-item" data-page="collections" onclick="showPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports</div>
+    <div class="nav-item" data-page="website" onclick="showPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
 
     <div class="nav-group">Front Desk</div>
     <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
@@ -1647,6 +1648,98 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
     </div>
 </div><!-- /page-guestform -->
+
+<!-- ===== Website (edit the public homepage copy) ===== -->
+<div class="page" id="page-website">
+<style>
+  #page-website .rates-head{ display:flex; align-items:flex-end; gap:18px; flex-wrap:wrap; margin-bottom:22px; }
+  #page-website .rates-head h1{ font-size:28px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--hv-ink); }
+  #page-website .rates-head p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  #page-website .rates-head .tools{ margin-left:auto; display:flex; gap:10px; }
+  #page-website .rcard{ background:#fff; border:1px solid var(--hv-line); border-radius:18px; padding:22px 24px; margin-bottom:22px; box-shadow:0 6px 20px rgba(80,60,30,.05); }
+  #page-website .rcard > h3{ font-size:16px; font-weight:800; color:var(--hv-ink); margin:0 0 16px; }
+  #page-website .wf{ display:grid; gap:16px; }
+  #page-website .wf label{ display:flex; flex-direction:column; gap:7px; font-size:13px; color:var(--hv-muted); font-weight:600; }
+  #page-website .wf input, #page-website .wf textarea, #page-website .wf select{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:10px; background:#faf7f2; color:var(--hv-ink); font-size:14px; font-family:inherit; }
+  #page-website .wf textarea{ min-height:70px; resize:vertical; line-height:1.5; }
+  #page-website .wf input:focus, #page-website .wf textarea:focus, #page-website .wf select:focus{ outline:none; border-color:var(--hv-terra); }
+  #page-website .wf-2{ grid-template-columns:1fr 1fr; }
+  @media(max-width:640px){ #page-website .wf-2{ grid-template-columns:1fr; } }
+  #page-website .savebar{ display:flex; gap:10px; align-items:center; }
+  #page-website .save-note{ color:var(--hv-muted); font-size:12.5px; }
+</style>
+  <div class="rates-head">
+    <div>
+      <h1>Website</h1>
+      <p>Edit the text on your public homepage. Changes go live for visitors after you Save.</p>
+    </div>
+    <div class="tools">
+      <a class="btn secondary" href="/index.html" target="_blank" rel="noopener">Open site ↗</a>
+      <button class="btn" onclick="saveWebsiteSettings()">Save changes</button>
+    </div>
+  </div>
+
+  <div class="rcard">
+    <h3>Hero section</h3>
+    <div class="wf">
+      <label>Eyebrow (small text above the headline)
+        <input type="text" id="w_heroEyebrow" placeholder="Comfortable · Affordable · Memorable">
+      </label>
+      <label>Headline
+        <input type="text" id="w_heroTitle" placeholder="Your quiet escape above Panay Ave.">
+      </label>
+      <label>Sub-headline
+        <textarea id="w_heroSubtitle" placeholder="Thoughtfully styled units at Mplace Tower D, Quezon City — from ₱999 a night."></textarea>
+      </label>
+      <label>Featured photo (which haven shows in the big hero photo)
+        <select id="w_heroHavenId"></select>
+      </label>
+    </div>
+  </div>
+
+  <div class="rcard">
+    <h3>Promo banner</h3>
+    <div class="wf">
+      <label>Eyebrow
+        <input type="text" id="w_promoEyebrow" placeholder="Limited promo">
+      </label>
+      <label>Message
+        <textarea id="w_promoTitle" placeholder="Stay 3 nights, get the 4th on us — book direct this month."></textarea>
+      </label>
+      <label>Button label
+        <input type="text" id="w_promoButton" placeholder="See all promos">
+      </label>
+    </div>
+  </div>
+
+  <div class="rcard">
+    <h3>Footer</h3>
+    <div class="wf">
+      <label>Tagline / address line
+        <textarea id="w_footerTagline" placeholder="Mplace Tower D, Panay Ave, Quezon City. Comfortable, affordable and memorable staycations."></textarea>
+      </label>
+      <label>Contact email
+        <input type="text" id="w_footerEmail" placeholder="hello@staycationhaven.ph">
+      </label>
+      <div class="wf wf-2" style="margin:0;">
+        <label>Instagram link
+          <input type="text" id="w_instagram" placeholder="https://instagram.com/...">
+        </label>
+        <label>Facebook link
+          <input type="text" id="w_facebook" placeholder="https://facebook.com/...">
+        </label>
+      </div>
+      <label>Viber link (or tel:)
+        <input type="text" id="w_viber" placeholder="viber://chat?number=%2B639...">
+      </label>
+    </div>
+  </div>
+
+  <div class="savebar">
+    <button class="btn" onclick="saveWebsiteSettings()">Save changes</button>
+    <span class="save-note">Tip: leave a field blank to keep the current default.</span>
+  </div>
+</div><!-- /page-website -->
 
 <!-- ===== Finance ===== -->
 <div class="page" id="page-finance">
@@ -7373,7 +7466,7 @@ function showPage(page){
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
     // breadcrumb in the top bar
     const CRUMB = {
-        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
+        today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], paymentapproval:["Front Desk","Payment Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
         havens:["Property","Havens"], booking:["Property","Rates & Add-ons"], cleaners:["Property","Housekeeping"],
         finance:["Finance","Finance"], payments:["Finance","Payments"], payroll:["Finance","Payroll"],
         bills:["Finance","Bills"], expenses:["Finance","Expenses"], analytics:["Finance","Analytics"],
@@ -7392,6 +7485,7 @@ function showPage(page){
     if(page === "deposit") renderDeposit();
     if(page === "violations" && typeof renderViolations === "function") renderViolations();
     if(page === "collections" && typeof renderCollections === "function") renderCollections();
+    if(page === "website" && typeof fillWebsiteSettings === "function") fillWebsiteSettings();
     if(page === "calendar"){ renderTimeline(); if(typeof renderLog === "function") renderLog(); }
     if(page === "guestform") renderGuestForm();
     if(typeof partnersOnShowPage === "function") partnersOnShowPage(page);   // Partners sub-module (partners.js)
@@ -11858,6 +11952,38 @@ function resetBookingSettings(){
     fillBookingSettings();
 }
 
+/* ---------- Website page: edit the public homepage copy (shph_settings.site) ---------- */
+function fillWebsiteSettings(){
+    const site = (loadSettings().site) || {};
+    const set = (id, v) => { const el = document.getElementById(id); if(el) el.value = (v == null ? "" : v); };
+    set("w_heroEyebrow", site.heroEyebrow);   set("w_heroTitle", site.heroTitle);   set("w_heroSubtitle", site.heroSubtitle);
+    set("w_promoEyebrow", site.promoEyebrow); set("w_promoTitle", site.promoTitle); set("w_promoButton", site.promoButton);
+    set("w_footerTagline", site.footerTagline); set("w_footerEmail", site.footerEmail);
+    set("w_instagram", site.instagram); set("w_facebook", site.facebook); set("w_viber", site.viber);
+    const sel = document.getElementById("w_heroHavenId");
+    if(sel){
+        const havens = (typeof loadHavens === "function") ? loadHavens().filter(h => h.live !== false) : [];
+        sel.innerHTML = '<option value="">First live haven (auto)</option>' +
+            havens.map(h => `<option value="${escAttr(String(h.id))}">${escHtml(h.name)}</option>`).join("");
+        sel.value = site.heroHavenId || "";
+    }
+}
+function saveWebsiteSettings(){
+    if(typeof isAdminUser === "function" && !isAdminUser()){ alert("Only an administrator can edit the website."); return; }
+    const s = loadSettings();
+    const val = id => { const el = document.getElementById(id); return el ? el.value.trim() : ""; };
+    s.site = Object.assign({}, s.site, {
+        heroEyebrow: val("w_heroEyebrow"),   heroTitle: val("w_heroTitle"),     heroSubtitle: val("w_heroSubtitle"),
+        heroHavenId: val("w_heroHavenId"),
+        promoEyebrow: val("w_promoEyebrow"), promoTitle: val("w_promoTitle"),   promoButton: val("w_promoButton"),
+        footerTagline: val("w_footerTagline"), footerEmail: val("w_footerEmail"),
+        instagram: val("w_instagram"), facebook: val("w_facebook"), viber: val("w_viber")
+    });
+    saveSettings(s);
+    if(typeof logActivity === "function") logActivity("updated website homepage copy");
+    alert("Saved! Your homepage now shows the changes (visitors see them on their next visit).");
+}
+
 let paymentMethods = [];   // working copy of the editable methods
 
 const PM_ICONS = {
@@ -12013,6 +12139,7 @@ const DASH_PAGES = [
     { key:"calendar",  label:"Calendar/Bookings" },
     { key:"guestform", label:"Guest Form" },
     { key:"collections", label:"Collection Reports" },
+    { key:"website",   label:"Website" },
     { key:"havens",    label:"Havens" },
     { key:"booking",   label:"Rates &amp; Add-ons" },
     { key:"payments",  label:"Payments" },
