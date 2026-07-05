@@ -146,6 +146,33 @@
   .sh-search .guest-trigger .value{ display:block; }
   .sh-cta{ display:block; width:100%; margin-top:10px; height:58px; padding:0; border:none; border-radius:12px; background:var(--sh-ink); color:#f0d488; font-family:'Manrope','Inter',sans-serif; font-weight:700; font-size:16px; letter-spacing:.02em; cursor:pointer; }
   .sh-cta:hover{ background:#000; }
+  /* clickable date fields + custom range calendar */
+  .sh-datefield, .sh-hours-field{ cursor:pointer; }
+  .sh-search .sh-dateval{ display:block; }
+  .sh-search .sh-dateval.ph{ color:#b4ac9c; }
+  .sh-cal{ position:absolute; top:calc(100% + 10px); left:0; width:min(100%,344px); background:#fff; border:1px solid var(--sh-line); border-radius:18px; box-shadow:0 22px 50px rgba(80,60,20,.20); padding:14px 16px 12px; z-index:80; }
+  .sh-cal-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:10px; }
+  .sh-cal-head > span{ font-family:'Recoleta','Fraunces',Georgia,serif; font-weight:700; font-size:17px; }
+  .sh-cal-nav{ border:none; background:#f6f1e7; width:32px; height:32px; border-radius:9px; cursor:pointer; font-size:18px; line-height:1; color:var(--sh-ink); }
+  .sh-cal-nav:hover{ background:#efe7d6; }
+  .sh-cal-nav:disabled{ opacity:.35; cursor:default; }
+  .sh-cal-dow{ display:grid; grid-template-columns:repeat(7,1fr); margin-bottom:2px; }
+  .sh-cal-dow span{ text-align:center; font-size:11px; color:#a09884; font-weight:700; padding:4px 0; }
+  .sh-cal-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:2px; }
+  .sh-cal-grid button{ aspect-ratio:1/1; border:none; background:none; border-radius:9px; cursor:pointer; font-size:13.5px; color:var(--sh-ink); font-family:inherit; }
+  .sh-cal-grid button:hover{ background:#f6f1e7; }
+  .sh-cal-grid button.inrange{ background:#f3e8cf; border-radius:0; }
+  .sh-cal-grid button.sel{ background:var(--sh-ink); color:#fff; font-weight:700; }
+  .sh-cal-grid .empty, .sh-cal-grid .past{ display:flex; align-items:center; justify-content:center; aspect-ratio:1/1; font-size:13.5px; color:#d3cabb; }
+  .sh-cal-foot{ display:flex; align-items:center; justify-content:space-between; gap:10px; margin-top:10px; padding-top:10px; border-top:1px solid var(--sh-line); }
+  .sh-cal-foot > span{ font-size:12.5px; color:var(--sh-muted); }
+  .sh-cal-foot button{ border:none; background:none; color:var(--sh-gold); font-weight:600; font-size:13px; cursor:pointer; }
+  /* custom hours dropdown (rounded panel like the guests popup) */
+  .sh-hours-field{ position:relative; }
+  .sh-hours-pop{ position:absolute; top:calc(100% + 10px); left:8px; min-width:190px; background:#fff; border:1px solid var(--sh-line); border-radius:16px; box-shadow:0 16px 40px rgba(80,60,20,.16); padding:6px; z-index:70; }
+  .sh-hours-opt{ padding:11px 14px; border-radius:11px; font-size:15px; color:var(--sh-ink); cursor:pointer; }
+  .sh-hours-opt:hover{ background:#f6f1e7; }
+  .sh-hours-opt.is-on{ background:var(--sh-ink); color:#fff; font-weight:600; }
 
   /* hero photo + overlay tag (min-height 560 like the design) */
   .sh-hero-media{ position:relative; border-radius:22px; overflow:hidden; box-shadow:0 24px 50px rgba(60,45,20,.16); min-height:560px; background:#e7ded0; }
@@ -258,13 +285,13 @@
 
       <div class="sh-search">
         <div class="sh-search-grid">
-          <div class="search-item">
+          <div class="search-item sh-datefield" onclick="shOpenCal('in', event)">
             <span class="label">Check-in</span>
-            <input type="date" class="sh-date" id="checkinDate">
+            <span class="value sh-dateval ph" id="shCiLabel">dd/mm/yyyy</span>
           </div>
-          <div class="search-item">
+          <div class="search-item sh-datefield" onclick="shOpenCal('out', event)">
             <span class="label">Check-out</span>
-            <input type="date" class="sh-date" id="checkoutDate">
+            <span class="value sh-dateval ph" id="shCoLabel">dd/mm/yyyy</span>
           </div>
           <div class="search-item guest-selector">
             <div class="guest-trigger" onclick="toggleGuests()">
@@ -291,17 +318,29 @@
               </div>
             </div>
           </div>
-          <div class="search-item">
+          <div class="search-item sh-hours-field" onclick="shToggleHours(event)">
             <span class="label">Hours</span>
-            <select id="searchHours">
-              <option value="">Any</option>
-              <option value="6">6 hours</option>
-              <option value="10">10 hours</option>
-              <option value="21">21 hours</option>
-            </select>
+            <span class="value" id="shHoursLabel">Any</span>
+            <input type="hidden" id="searchHours" value="">
+            <div class="sh-hours-pop" id="shHoursPop" hidden>
+              <div class="sh-hours-opt is-on" data-v="" onclick="shPickHours(this, event)">Any</div>
+              <div class="sh-hours-opt" data-v="6" onclick="shPickHours(this, event)">6 hours</div>
+              <div class="sh-hours-opt" data-v="10" onclick="shPickHours(this, event)">10 hours</div>
+              <div class="sh-hours-opt" data-v="21" onclick="shPickHours(this, event)">21 hours</div>
+            </div>
           </div>
         </div>
         <button class="sh-cta" onclick="checkAvailability()">Check Availability</button>
+        <div class="sh-cal" id="shCal" hidden>
+          <div class="sh-cal-head">
+            <button type="button" class="sh-cal-nav" id="shCalPrev" onclick="shCalNav(-1)">‹</button>
+            <span id="shCalTitle"></span>
+            <button type="button" class="sh-cal-nav" onclick="shCalNav(1)">›</button>
+          </div>
+          <div class="sh-cal-dow"><span>Su</span><span>Mo</span><span>Tu</span><span>We</span><span>Th</span><span>Fr</span><span>Sa</span></div>
+          <div class="sh-cal-grid" id="shCalGrid"></div>
+          <div class="sh-cal-foot"><span id="shCalHint">Select check-in date</span><button type="button" onclick="shCalClear()">Clear</button></div>
+        </div>
       </div>
 
     </div>
@@ -433,43 +472,91 @@
 </script>
 <script src="script.js"></script>
 <script>
-/* ---------- homepage date range (native date inputs, matches the design) ---------- */
+/* ---------- homepage search: custom date-range calendar + hours dropdown ---------- */
 (function(){
-    const ci = document.getElementById("checkinDate");
-    const co = document.getElementById("checkoutDate");
-    function todayIso(){ const d = new Date(); return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
-    if(ci) ci.min = todayIso();
+    let selStart = null, selEnd = null, viewDate = null;
+    const cal = document.getElementById("shCal");
+    const hoursPop = document.getElementById("shHoursPop");
+    function iso(d){ return d.getFullYear() + "-" + String(d.getMonth()+1).padStart(2,"0") + "-" + String(d.getDate()).padStart(2,"0"); }
+    function todayIso(){ return iso(new Date()); }
+    function fmt(s){ if(!s) return "dd/mm/yyyy"; const d = new Date(s + "T00:00:00"); return String(d.getDate()).padStart(2,"0") + "/" + String(d.getMonth()+1).padStart(2,"0") + "/" + d.getFullYear(); }
 
-    function onCheckin(){
-        if(co){ co.min = (ci && ci.value) || todayIso(); if(co.value && ci.value && co.value < ci.value) co.value = ""; }
-        updateStayHours();
+    // booking flow reads dates through this (script.js / checkAvailability unchanged)
+    window.getStayDates = function(){ return { start: selStart, end: selEnd }; };
+
+    function closeOthers(){ if(hoursPop) hoursPop.hidden = true; const gp = document.querySelector(".guest-popup"); if(gp) gp.classList.remove("show"); }
+    window.shOpenCal = function(which, e){
+        if(e) e.stopPropagation();
+        closeOthers();
+        if(!viewDate){ const t = selStart ? new Date(selStart + "T00:00:00") : new Date(); viewDate = new Date(t.getFullYear(), t.getMonth(), 1); }
+        renderCal(); cal.hidden = false;
+    };
+    window.openCalendar = function(){ window.shOpenCal("in"); };   // used by checkAvailability when no date
+    window.shCalNav = function(delta){ const now = new Date(); const cand = new Date(viewDate.getFullYear(), viewDate.getMonth()+delta, 1); const min = new Date(now.getFullYear(), now.getMonth(), 1); if(cand < min) return; viewDate = cand; renderCal(); };
+    window.shCalClear = function(){ selStart = null; selEnd = null; paint(); updateHours(); renderCal(); };
+    window._shPick = function(s){
+        if(!selStart || (selStart && selEnd)){ selStart = s; selEnd = null; }
+        else if(s <= selStart){ selStart = s; selEnd = null; }
+        else { selEnd = s; }
+        paint(); updateHours(); renderCal();
+        if(selStart && selEnd) setTimeout(function(){ cal.hidden = true; }, 160);
+    };
+
+    function renderCal(){
+        const y = viewDate.getFullYear(), m = viewDate.getMonth();
+        document.getElementById("shCalTitle").textContent = viewDate.toLocaleString("en-US", { month:"long", year:"numeric" });
+        const now = new Date(); document.getElementById("shCalPrev").disabled = (y === now.getFullYear() && m === now.getMonth());
+        const startDow = new Date(y, m, 1).getDay(), days = new Date(y, m+1, 0).getDate(), t = todayIso();
+        let h = "";
+        for(let i = 0; i < startDow; i++) h += '<span class="empty"></span>';
+        for(let d = 1; d <= days; d++){
+            const s = iso(new Date(y, m, d));
+            if(s < t){ h += '<span class="past">' + d + '</span>'; continue; }
+            let cls = "";
+            if(s === selStart || s === selEnd) cls = "sel";
+            else if(selStart && selEnd && s > selStart && s < selEnd) cls = "inrange";
+            h += '<button type="button" class="' + cls + '" onclick="_shPick(\'' + s + '\')">' + d + '</button>';
+        }
+        document.getElementById("shCalGrid").innerHTML = h;
+        document.getElementById("shCalHint").textContent = !selStart ? "Select check-in date" : (!selEnd ? "Select check-out date" : (fmt(selStart) + " → " + fmt(selEnd)));
     }
-    if(ci) ci.addEventListener("change", onCheckin);
-    if(co) co.addEventListener("change", updateStayHours);
+    function paint(){
+        const ci = document.getElementById("shCiLabel"), co = document.getElementById("shCoLabel");
+        ci.textContent = fmt(selStart); ci.classList.toggle("ph", !selStart);
+        co.textContent = fmt(selEnd); co.classList.toggle("ph", !selEnd);
+    }
 
-    // the booking flow reads dates through these (script.js / checkAvailability unchanged)
-    window.getStayDates = function(){ return { start: (ci && ci.value) || null, end: (co && co.value) || null }; };
-    window.openCalendar = function(){ if(ci){ ci.focus(); try{ if(ci.showPicker) ci.showPicker(); }catch(e){} } };
+    // ---- custom hours dropdown ----
+    window.shToggleHours = function(e){ if(e) e.stopPropagation(); if(cal) cal.hidden = true; const gp = document.querySelector(".guest-popup"); if(gp) gp.classList.remove("show"); hoursPop.hidden = !hoursPop.hidden; };
+    window.shPickHours = function(el, e){
+        if(e) e.stopPropagation();
+        document.getElementById("searchHours").value = el.dataset.v;
+        document.getElementById("shHoursLabel").textContent = el.textContent.trim();
+        hoursPop.querySelectorAll(".sh-hours-opt").forEach(function(o){ o.classList.toggle("is-on", o === el); });
+        hoursPop.hidden = true;
+        if(typeof refreshResultsIfShown === "function") refreshResultsIfShown();
+    };
 
-    // when the stay spans 2+ nights, inject a "N nights" option into HOURS and auto-select it
-    function updateStayHours(){
-        const sel = document.getElementById("searchHours");
-        if(!sel) return;
-        const prev = sel.querySelector("option[data-nights]");
-        if(prev) prev.remove();
-        const s = ci && ci.value, e = co && co.value;
-        if(s && e && e > s){
-            const nights = Math.round((new Date(e) - new Date(s)) / 86400000);
+    // when the stay spans 2+ nights, set HOURS to "N nights" (adds it to the dropdown, selected)
+    function updateHours(){
+        const inp = document.getElementById("searchHours"), lab = document.getElementById("shHoursLabel");
+        const ex = hoursPop.querySelector('[data-nights]'); if(ex) ex.remove();
+        if(selStart && selEnd && selEnd > selStart){
+            const nights = Math.round((new Date(selEnd) - new Date(selStart)) / 86400000);
             if(nights >= 2){
-                const opt = document.createElement("option");
-                opt.value = "nights:" + nights;
-                opt.textContent = nights + " nights";
-                opt.setAttribute("data-nights", nights);
-                sel.appendChild(opt);
-                sel.value = opt.value;
+                inp.value = "nights:" + nights; lab.textContent = nights + " nights";
+                const o = document.createElement("div"); o.className = "sh-hours-opt"; o.dataset.v = "nights:" + nights; o.setAttribute("data-nights", nights); o.textContent = nights + " nights"; o.onclick = function(e){ shPickHours(o, e); };
+                hoursPop.insertBefore(o, hoursPop.firstChild);
+                hoursPop.querySelectorAll(".sh-hours-opt").forEach(function(x){ x.classList.toggle("is-on", x === o); });
             }
         }
     }
+
+    // close popups on an outside click
+    document.addEventListener("click", function(e){
+        if(cal && !cal.hidden && !cal.contains(e.target) && !e.target.closest(".sh-datefield")) cal.hidden = true;
+        if(hoursPop && !hoursPop.hidden && !hoursPop.contains(e.target) && !e.target.closest(".sh-hours-field")) hoursPop.hidden = true;
+    });
 })();
 </script>
 

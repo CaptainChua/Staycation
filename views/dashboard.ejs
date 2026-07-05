@@ -2233,8 +2233,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         <label class="hv-fl">Amenities</label>
         <div class="hv-chips" id="hvChips"></div>
         <div class="hv-addamen">
-            <input class="hv-fld" id="hvAmenInput" placeholder="e.g. 📶 Fast WiFi"
+            <input class="hv-fld" id="hvAmenInput" list="hvAmenList" placeholder="e.g. Fast WiFi — pick from your list or type new"
                    onkeydown="if(event.key==='Enter'){event.preventDefault();hvAddAmen();}">
+            <datalist id="hvAmenList"></datalist>
             <button class="hv-pill" onclick="hvAddAmen()">Add</button>
         </div>
     </div>
@@ -11623,6 +11624,23 @@ function hvRenderChips(){
         ? hvDraftAmen.map((a, idx) =>
             `<span class="hv-chip">${amenityIcon(a)}<span>${escHtml(amenityLabel(a))}</span><x onclick="hvDelAmen(${idx})">✕</x></span>`).join("")
         : '<span class="hv-muted">No amenities yet — add one below.</span>';
+    hvFillAmenSuggest();
+}
+// build the amenity autocomplete from every amenity already used across all havens,
+// so the owner can pick instead of retyping. Excludes ones already on this haven.
+function hvFillAmenSuggest(){
+    const dl = document.getElementById("hvAmenList");
+    if(!dl) return;
+    const onDraft = new Set(hvDraftAmen.map(a => (typeof amenityLabel === "function" ? amenityLabel(a) : String(a)).toLowerCase()));
+    const seen = new Set(), opts = [];
+    ((typeof loadHavens === "function") ? loadHavens() : []).forEach(h =>
+        (h.amenities || []).forEach(a => {
+            const label = (typeof amenityLabel === "function") ? amenityLabel(a) : String(a);
+            const key = label.toLowerCase();
+            if(label && !seen.has(key) && !onDraft.has(key)){ seen.add(key); opts.push(label); }
+        }));
+    opts.sort((a, b) => a.localeCompare(b));
+    dl.innerHTML = opts.map(o => `<option value="${escAttr(o)}"></option>`).join("");
 }
 function hvAddAmen(){
     const inp = document.getElementById("hvAmenInput");
