@@ -405,7 +405,7 @@ apiRouter.post("/send-confirmation", async (req, res) => {
       from: `"Staycation Haven PH" <${user}>`,
       to: String(to),
       bcc: process.env.OWNER_EMAIL || "staycationhavenph@gmail.com, piacarlaclav@gmail.com",   // owner copies
-      subject: `${_bookedOn} - ${String(booking.code || "").slice(0, 12)}`,
+      subject: `NEW BOOKING - ${_bookedOn} - ${String(booking.code || "").slice(0, 12)}`,
       html: _confirmationHtml(booking)
     });
     res.json({ ok: true });
