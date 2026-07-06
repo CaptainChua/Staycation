@@ -547,11 +547,15 @@
   </div>
 
   <style>
-    /* ---- Bookings / Availability tabs (mirrors the dashboard Calendar page) ---- */
-    .tb-tabs{ display:flex; align-items:center; gap:22px; margin:2px 0 18px; }
-    .tb-tab{ border:none; background:none; padding:0 0 6px; font-family:inherit; font-size:18px; font-weight:800; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; }
-    .tb-tab:hover{ color:var(--hv-ink); }
-    .tb-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+    /* ---- Arriving / Availability tabs, inside the panel head ---- */
+    .ap-head{ justify-content:flex-start; gap:26px; }
+    .ap-tab{ border:none; background:none; padding:0 0 8px; margin:0; font-family:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:9px; font-size:17px; font-weight:800; color:var(--hv-muted); border-bottom:2px solid transparent; line-height:1.2; }
+    .ap-tab .sec-ico{ display:inline-flex; align-items:center; }
+    .ap-tab .sec-ico svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .ap-tab .muted{ font-weight:400; }
+    .ap-tab:hover{ color:var(--hv-ink); }
+    .ap-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+    .ap-tab.active .sec-ico svg{ stroke:var(--hv-terra); }
 
     #tbAvailBody .avail-bar{ display:flex; align-items:center; gap:10px; margin:2px 0 16px; flex-wrap:wrap; }
     #tbAvailBody .avail-lbl{ font-size:13px; color:var(--hv-muted); }
@@ -589,12 +593,6 @@
     #tbAvailBody .av-bad{ color:#c0283d; font-weight:700; }
   </style>
 
-  <div class="tb-tabs">
-    <button class="tb-tab active" data-tt="bookings" onclick="tbTab('bookings')">Bookings</button>
-    <button class="tb-tab" data-tt="availability" onclick="tbTab('availability')">Availability</button>
-  </div>
-
-  <div id="tbBookingsBody">
   <div class="cards" id="todayCards"></div>
 
   <div class="panel">
@@ -602,9 +600,12 @@
     <div class="mop-grid" id="mopGrid"></div>
   </div>
 
-  <div class="panel">
-    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg></span><span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></h2></div>
-    <div class="scroll">
+  <div class="panel" id="arrivePanel">
+    <div class="panel-head ap-head">
+      <button class="ap-tab active" type="button" data-at="arriving" onclick="apTab('arriving')"><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg></span><span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></button>
+      <button class="ap-tab" type="button" data-at="availability" onclick="apTab('availability')"><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>Availability</button>
+    </div>
+    <div id="apArrivingBody" class="scroll">
       <table>
         <thead><tr>
           <th>Haven</th><th>Guests</th><th>Check-in</th><th>Check-out</th>
@@ -612,6 +613,22 @@
         </tr></thead>
         <tbody id="todayArriveBody"></tbody>
       </table>
+    </div>
+    <div id="tbAvailBody" style="display:none;">
+      <div class="avail-bar">
+        <label class="avail-lbl">Date</label>
+        <div class="tb-dp-wrap">
+          <button type="button" class="date-pill2" onclick="tbAvailOpenPicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbAvailDateLabel"></span></button>
+          <div id="tbAvailDpPop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
+            <div class="dp-head"><button type="button" onclick="tbAvailPickerNav(-1)">‹</button><span id="tbAvailDpTitle"></span><button type="button" onclick="tbAvailPickerNav(1)">›</button></div>
+            <div class="dp-grid" id="tbAvailDpGrid"></div>
+            <div class="dp-foot"><span onclick="tbAvailToday()">Today</span></div>
+          </div>
+        </div>
+        <button class="btn secondary" onclick="tbAvailToday()">Today</button>
+        <span class="muted avail-hint">Earliest a new guest can check in each haven, and their next booking.</span>
+      </div>
+      <div id="tbAvailList"></div>
     </div>
   </div>
 
@@ -636,26 +653,6 @@
     </div>
     <div class="scroll" style="max-height:340px; overflow-y:auto;">
       <div id="todayLogList" class="log-list"></div>
-    </div>
-  </div>
-  </div><!-- /#tbBookingsBody -->
-
-  <div id="tbAvailBody" style="display:none;">
-    <div class="panel">
-      <div class="avail-bar">
-        <label class="avail-lbl">Date</label>
-        <div class="tb-dp-wrap">
-          <button type="button" class="date-pill2" onclick="tbAvailOpenPicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbAvailDateLabel"></span></button>
-          <div id="tbAvailDpPop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
-            <div class="dp-head"><button type="button" onclick="tbAvailPickerNav(-1)">‹</button><span id="tbAvailDpTitle"></span><button type="button" onclick="tbAvailPickerNav(1)">›</button></div>
-            <div class="dp-grid" id="tbAvailDpGrid"></div>
-            <div class="dp-foot"><span onclick="tbAvailToday()">Today</span></div>
-          </div>
-        </div>
-        <button class="btn secondary" onclick="tbAvailToday()">Today</button>
-        <span class="muted avail-hint">Earliest a new guest can check in each haven, and their next booking.</span>
-      </div>
-      <div id="tbAvailList"></div>
     </div>
   </div>
 </div>
@@ -1191,15 +1188,13 @@
     return ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","CasaBienca","CasaSiesta"];
   }
 
-  // Bookings ⇄ Availability tab switch
-  function tbTab(view){
-    document.querySelectorAll(".tb-tab").forEach(t => t.classList.toggle("active", t.dataset.tt === view));
+  // Arriving ⇄ Availability tab switch (inside the arriving panel head)
+  function apTab(view){
+    document.querySelectorAll("#arrivePanel .ap-tab").forEach(t => t.classList.toggle("active", t.dataset.at === view));
     const isAvail = (view === "availability");
-    const bk = document.getElementById("tbBookingsBody"), av = document.getElementById("tbAvailBody");
-    const tools = document.querySelector(".head-tools");
-    if(bk) bk.style.display = isAvail ? "none" : "";
+    const arr = document.getElementById("apArrivingBody"), av = document.getElementById("tbAvailBody");
+    if(arr) arr.style.display = isAvail ? "none" : "";
     if(av) av.style.display = isAvail ? "" : "none";
-    if(tools) tools.style.display = isAvail ? "none" : "";   // the Yesterday/Today/Tomorrow + Refresh controls apply to Bookings only
     if(isAvail) renderAvailability();
   }
 
