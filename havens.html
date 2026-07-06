@@ -106,6 +106,24 @@ function renderHavenList(container) {
         </div>`;
 }
 
+// Pull the 11-char id from any YouTube link (watch?v=, youtu.be/, embed/, shorts/) or a bare id.
+function _ytId(url) {
+    if (!url) return "";
+    const s = String(url).trim();
+    const m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|v\/|live\/))([A-Za-z0-9_-]{11})/);
+    if (m) return m[1];
+    if (/^[A-Za-z0-9_-]{11}$/.test(s)) return s;
+    return "";
+}
+// A responsive 16:9 YouTube embed for the haven's optional video tour (empty string if no valid link).
+function havenVideoEmbed(url) {
+    const id = _ytId(url);
+    if (!id) return "";
+    return `<div style="position:relative; width:100%; aspect-ratio:16/9; margin:14px 0 0; border-radius:22px; overflow:hidden; box-shadow:inset 0 0 0 1px #efe9dd; background:#000;">
+        <iframe src="https://www.youtube.com/embed/${id}" title="Video tour" style="position:absolute; inset:0; width:100%; height:100%; border:0;" allow="accelerometer; autoplay; clipboard-write; encrypted-media; gyroscope; picture-in-picture; web-share" allowfullscreen loading="lazy"></iframe>
+    </div>`;
+}
+
 function renderHaven() {
     const id = new URLSearchParams(window.location.search).get("id");
     const container = document.getElementById("haven-content");
@@ -145,6 +163,7 @@ function renderHaven() {
     container.innerHTML = `
         <img class="haven-photo" id="havenPhoto" src="${haven.image}" alt="${haven.name}" onclick="openLightbox(this.src)">
         ${thumbs}
+        ${havenVideoEmbed(haven.videoUrl)}
         <div class="haven-grid">
             <div class="haven-main">
                 <h1>${haven.name}</h1>

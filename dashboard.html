@@ -2180,6 +2180,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <input type="file" id="hvGalUp" accept="image/*" multiple hidden onchange="hvUploadGallery(this.files, this)">
         </label>
 
+        <label class="hv-fl">Video tour <span class="muted" style="font-weight:400; font-size:12px;">— optional, paste a YouTube link</span></label>
+        <input class="hv-fld" id="hvVideo" placeholder="https://youtu.be/…  or  https://youtube.com/watch?v=…" oninput="hvPreviewVideo(this.value)">
+        <div id="hvVideoPrev" style="margin-top:8px;"></div>
+
         <div class="hv-two">
             <div><label class="hv-fl">Name</label><input class="hv-fld" id="hvName"></div>
             <div><label class="hv-fl">Price starts at:</label><input class="hv-fld" id="hvPrice" placeholder="₱0 / night"></div>
@@ -11649,6 +11653,24 @@ function hvLiveToggleUI(){
     const row = document.getElementById("hvLiveRow"); if(row) row.classList.toggle("off", !on);
     const st = document.getElementById("hvLiveState"); if(st) st.textContent = on ? "On — shown on the website" : "Off — hidden from the website";
 }
+// Pull the 11-char video id out of any common YouTube link (watch?v=, youtu.be/, embed/, shorts/) or a bare id.
+function _ytId(url){
+    if(!url) return "";
+    const s = String(url).trim();
+    const m = s.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?(?:.*&)?v=|embed\/|shorts\/|v\/|live\/))([A-Za-z0-9_-]{11})/);
+    if(m) return m[1];
+    if(/^[A-Za-z0-9_-]{11}$/.test(s)) return s;   // already just the id
+    return "";
+}
+function _ytEmbed(url){ const id = _ytId(url); return id ? ("https://www.youtube.com/embed/" + id) : ""; }
+function hvPreviewVideo(url){
+    const box = document.getElementById("hvVideoPrev");
+    if(!box) return;
+    const emb = _ytEmbed(url);
+    if(emb) box.innerHTML = `<iframe width="100%" height="190" src="${emb}" frameborder="0" allow="accelerometer; encrypted-media; gyroscope; picture-in-picture" allowfullscreen style="border-radius:12px; border:1px solid var(--hv-line);"></iframe>`;
+    else box.innerHTML = (url && url.trim()) ? `<span style="font-size:12px; color:#c0392b;">Hmm, that doesn't look like a YouTube link.</span>` : "";
+}
+
 function openHaven(i){
     const h = listings[i];
     if(!h) return;
@@ -11660,6 +11682,8 @@ function openHaven(i){
     document.getElementById("hvDesc").value = h.description || "";
     document.getElementById("hvImg").value = h.image || "";
     hvPreviewImg(h.image || "");
+    document.getElementById("hvVideo").value = h.videoUrl || "";
+    hvPreviewVideo(h.videoUrl || "");
     hvDraftGallery = (h.gallery || []).slice();
     hvDraftAmen = (h.amenities || []).slice();
     hvRenderGallery();
@@ -11812,6 +11836,7 @@ async function saveHaven(){
             name: document.getElementById("hvName").value.trim() || "Untitled Haven",
             image: document.getElementById("hvImg").value.trim(),
             gallery: hvDraftGallery.map(s => s.trim()).filter(Boolean),
+            videoUrl: (document.getElementById("hvVideo").value || "").trim(),   // optional YouTube tour link
             price: document.getElementById("hvPrice").value.trim(),
             description: document.getElementById("hvDesc").value,
             amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean),
