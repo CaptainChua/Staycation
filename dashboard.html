@@ -6693,15 +6693,21 @@ function buildConfirmationHTML(){
 }
 
 // download the confirmation as a PDF (lazy-loads the generator from a CDN)
-function downloadConfirmation(){
+async function downloadConfirmation(){
     const el = document.getElementById("bkConfirm");
     if(!el) return;
     el.innerHTML = buildConfirmationHTML();   // fresh content
     const prev = el.style.transform;
     el.style.transform = "none";              // capture at full 760px (not the scaled preview)
-    const rect = el.getBoundingClientRect();
-    // round the page UP (+1px safety) so the document never spills a sliver onto a 2nd blank page
-    const w = Math.ceil(rect.width), h = Math.ceil(rect.height) + 1;
+    const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
+    // Wait for the web fonts (Playfair/Mulish) to actually apply + two frames, so the card is at its
+    // TRUE final height before we measure. Measuring too early (fonts not yet applied) shifted the
+    // height and made the downloaded PDF add blank space on top and crop the footer at the bottom.
+    try{ if(document.fonts && document.fonts.ready) await document.fonts.ready; }catch(e){}
+    await new Promise(r => requestAnimationFrame(() => requestAnimationFrame(r)));
+    // full content size (+2px safety so it never spills a sliver onto a 2nd blank page)
+    const w = Math.ceil(el.offsetWidth) || 760;
+    const h = Math.ceil(el.scrollHeight) + 2;
     // filename = <check-in MMDDYY>-D<unit>, e.g. Jun 29 2026 · Haven 4 → 062926-D2602
     const ci = (document.getElementById("f_checkin") || {}).value || "";
     const havenVal = (document.getElementById("f_haven") || {}).value || "";
@@ -6713,11 +6719,12 @@ function downloadConfirmation(){
     } else {
         fname = "Booking-Confirmation-" + (bookingCode(bookings.find(x => x.id === editingId)) || "new") + ".pdf";
     }
-    const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
     const go = () => html2pdf().set({
         margin: 0, filename: fname,
         image: { type:"jpeg", quality:0.98 },
-        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", windowHeight: h },
+        // pin the capture to the element's exact box at (0,0), ignoring page scroll — this is what
+        // stops html2canvas from offsetting the render (blank top) and cutting the bottom.
+        html2canvas: { scale: 2, useCORS: true, backgroundColor: "#ffffff", width: w, height: h, windowWidth: w, windowHeight: h, scrollX: 0, scrollY: 0 },
         jsPDF: { unit:"px", format:[w, h], orientation: "portrait" },
         pagebreak: { mode: ["avoid-all"] }
     }).from(el).save().then(restore, restore);
