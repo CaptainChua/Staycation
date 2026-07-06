@@ -6479,7 +6479,7 @@ function openModal(id){
         setField("f_downDate", b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || ""))); paintDpdPill();
         setField("f_notes", b.notes || "");
         _newBookingId = null;                        // editing uses editingId, not a fresh id
-        _bookedBy = b.bookedBy || (b.source === "website" ? "Website" : null);   // website bookings log as WEBSITE, not the admin
+        _bookedBy = (b.source === "website") ? "Website" : (b.bookedBy || null);   // website bookings ALWAYS log as WEBSITE, even if an admin edited/saved them
         _bookedAtIso = b.bookedAt || null;
         setField("f_commName", b.commissionName || "Admin");
         setField("f_commAmount", b.commissionAmount ? b.commissionAmount : "");
@@ -8326,7 +8326,7 @@ function renderCollections(){
         const dp = Number(b.downpayment) || 0;
         if(dp > 0){
             const d = _crDpDay(b);
-            if(d && d >= start && d <= end) rows.push({ b, amount: dp, type: "Downpayment", method: b.method || "—", by: b.bookedBy || "Admin", at: null, day: d, kind: "dp", pi: -1, verified: b.dpVerified || "" });
+            if(d && d >= start && d <= end) rows.push({ b, amount: dp, type: "Downpayment", method: b.method || "—", by: (b.source === "website" ? "Website" : (b.bookedBy || "Admin")), at: null, day: d, kind: "dp", pi: -1, verified: b.dpVerified || "" });
         }
         (b.payments || []).forEach((p, pi) => {
             const amt = Number(p.amount) || 0; if(!amt) return;
