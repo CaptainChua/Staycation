@@ -2945,6 +2945,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     #page-collections .cr-toolbar{ display:flex; gap:10px; align-items:center; flex-wrap:wrap; margin:16px 0 14px; }
     #page-collections .cr-toolbar input[type=date], #page-collections select.cr-filter{ padding:9px 12px; border:1px solid var(--hv-line); border-radius:10px; background:#fff; font-size:13px; font-weight:600; color:var(--hv-ink); font-family:inherit; }
     #page-collections select.cr-status{ padding:5px 8px; border:1px solid var(--hv-line); border-radius:8px; background:#fff; font-size:12px; font-weight:700; color:var(--hv-muted); font-family:inherit; cursor:pointer; }
+    #page-collections th.cr-sort{ cursor:pointer; user-select:none; white-space:nowrap; }
+    #page-collections th.cr-sort:hover{ color:var(--hv-terra-d); }
+    #page-collections th.cr-sort.active{ color:var(--hv-terra-d); }
+    #page-collections .cr-caret{ font-size:10px; }
     #page-collections select.cr-status.is-ok{ color:#1f8a4c; border-color:#bfe6cd; background:#f2fbf5; }
     #page-collections select.cr-status.is-no{ color:#c0392b; border-color:#f0c8c2; background:#fdf4f2; }
     #page-collections .cr-seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
@@ -2996,7 +3000,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     <div style="overflow-x:auto;">
       <table>
         <thead><tr>
-          <th class="num" style="width:34px;">#</th><th>Booking ID</th><th>Guest Name</th><th>Haven</th><th class="num">Amount</th><th>Type</th><th>Method</th><th>Collected By</th><th>Time Collected</th><th>Status</th>
+          <th class="num" style="width:34px;">#</th>
+          <th class="cr-sort" data-k="code" onclick="crSort('code')">Booking ID <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="name" onclick="crSort('name')">Guest Name <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="haven" onclick="crSort('haven')">Haven <span class="cr-caret"></span></th>
+          <th class="cr-sort num" data-k="amount" onclick="crSort('amount')">Amount <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="type" onclick="crSort('type')">Type <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="method" onclick="crSort('method')">Method <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="by" onclick="crSort('by')">Collected By <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="time" onclick="crSort('time')">Time Collected <span class="cr-caret"></span></th>
+          <th class="cr-sort" data-k="status" onclick="crSort('status')">Status <span class="cr-caret"></span></th>
         </tr></thead>
         <tbody id="crBody"></tbody>
         <tfoot id="crFoot"></tfoot>
@@ -8156,6 +8169,29 @@ function _crRange(){
 function crQuick(m){ crMode = m; try{ localStorage.setItem("shph_cr_mode", m); }catch(e){} renderCollections(); }
 function crCustom(){ crMode = "custom"; try{ localStorage.setItem("shph_cr_mode", "custom"); localStorage.setItem("shph_cr_from", (document.getElementById("crFrom")||{}).value||""); localStorage.setItem("shph_cr_to", (document.getElementById("crTo")||{}).value||""); }catch(e){} renderCollections(); }
 
+/* ---------- Collection Reports: column sorting ---------- */
+let crSortKey = "", crSortDir = "desc";   // "" = default order (newest first)
+function crSort(key){
+    if(crSortKey === key){ crSortDir = (crSortDir === "asc") ? "desc" : "asc"; }
+    else { crSortKey = key; crSortDir = "asc"; }
+    renderCollections();
+}
+// the value a row sorts by for a given column
+function _crRowVal(r, key){
+    switch(key){
+        case "code":   return (typeof bookingCode === "function" ? bookingCode(r.b) : "") || "";
+        case "name":   return ((typeof primaryName === "function" ? primaryName(r.b) : "") || "").toLowerCase();
+        case "haven":  return String(r.b.haven || "").toLowerCase();
+        case "amount": return Number(r.amount) || 0;
+        case "type":   return String(r.type || "").toLowerCase();
+        case "method": return String(r.method || "").toLowerCase();
+        case "by":     return String(r.by || "").toLowerCase();
+        case "status": return String(r.verified || "");   // "" (--) < unverified < verified
+        case "time":
+        default:       return r.at || (r.day + "T00:00");
+    }
+}
+
 /* ---------- Collection Reports: clickable date-range calendar (matches the other pickers) ---------- */
 let crDpMonth = null, crDpPending = null, crDpHover = null;
 function crUpdateRangeLabel(){
@@ -8298,7 +8334,22 @@ function renderCollections(){
             if(day && day >= start && day <= end) rows.push({ b, amount: amt, type: p.category || "Balance", method: p.mop || "—", by: p.by || "—", at: p.at, day, kind: "pay", pi, verified: p.verified || "" });
         });
     });
-    rows.sort((a, c) => (c.at || (c.day + "T00:00")).localeCompare(a.at || (a.day + "T00:00")));
+    if(crSortKey){
+        rows.sort((a, c) => {
+            const va = _crRowVal(a, crSortKey), vb = _crRowVal(c, crSortKey);
+            const cmp = (typeof va === "number") ? (va - vb) : String(va).localeCompare(String(vb));
+            return crSortDir === "asc" ? cmp : -cmp;
+        });
+    } else {
+        rows.sort((a, c) => (c.at || (c.day + "T00:00")).localeCompare(a.at || (a.day + "T00:00")));   // default: newest first
+    }
+    // reflect the active sort column + direction in the header carets
+    const _crTbl = document.getElementById("crBody") ? document.getElementById("crBody").closest("table") : null;
+    if(_crTbl) _crTbl.querySelectorAll("th.cr-sort").forEach(th => {
+        const k = th.dataset.k, caret = th.querySelector(".cr-caret");
+        if(caret) caret.textContent = (crSortKey === k) ? (crSortDir === "asc" ? " ▲" : " ▼") : "";
+        th.classList.toggle("active", crSortKey === k);
+    });
 
     const body = document.getElementById("crBody");
     if(body) body.innerHTML = rows.length ? rows.map((r, ri) => {
