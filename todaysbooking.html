@@ -544,6 +544,55 @@
     </div>
   </div>
 
+  <style>
+    /* ---- Bookings / Availability tabs (mirrors the dashboard Calendar page) ---- */
+    .tb-tabs{ display:flex; align-items:center; gap:22px; margin:2px 0 18px; }
+    .tb-tab{ border:none; background:none; padding:0 0 6px; font-family:inherit; font-size:18px; font-weight:800; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; }
+    .tb-tab:hover{ color:var(--hv-ink); }
+    .tb-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+
+    #tbAvailBody .avail-bar{ display:flex; align-items:center; gap:10px; margin:2px 0 16px; flex-wrap:wrap; }
+    #tbAvailBody .avail-lbl{ font-size:13px; color:var(--hv-muted); }
+    #tbAvailBody .avail-hint{ font-size:13px; margin-left:6px; }
+    .tb-dp-wrap{ position:relative; }
+    .date-pill2{ display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border:1px solid var(--hv-line); background:#fff; border-radius:10px; font-family:inherit; font-size:14px; font-weight:600; color:var(--hv-ink); cursor:pointer; }
+    .date-pill2:hover{ border-color:var(--hv-terra); color:var(--hv-terra); }
+    .date-pill2 svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; }
+
+    #tbAvailDpPop.tb-dp{ position:absolute; left:0; top:50px; width:300px; background:#fff; border:1px solid #f0f0f0; border-radius:20px; box-shadow:0 12px 35px rgba(0,0,0,.16); padding:18px; z-index:60; text-align:left; }
+    #tbAvailDpPop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    #tbAvailDpPop .dp-head span{ font-size:15px; font-weight:bold; color:#333; }
+    #tbAvailDpPop .dp-head button{ width:32px; height:32px; border:none; background:#f6f6f6; border-radius:50%; cursor:pointer; font-size:16px; color:#555; }
+    #tbAvailDpPop .dp-head button:hover{ background:#f0f0f0; color:#111; }
+    #tbAvailDpPop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); column-gap:0; row-gap:6px; }
+    #tbAvailDpPop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#bbb; padding:4px 0; }
+    #tbAvailDpPop .dp-day{ position:relative; height:40px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#333; cursor:pointer; }
+    #tbAvailDpPop .dp-day .n{ width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; position:relative; z-index:1; transition:background .12s ease; }
+    #tbAvailDpPop .dp-day.empty{ cursor:default; }
+    #tbAvailDpPop .dp-day.today .n{ font-weight:bold; }
+    #tbAvailDpPop .dp-day:not(.sel):not(.empty):hover .n{ background:#efefef; }
+    #tbAvailDpPop .dp-day.sel .n{ background:var(--hv-terra,#b9744a); color:#fff; font-weight:bold; }
+    #tbAvailDpPop .dp-foot{ display:flex; justify-content:flex-end; margin-top:10px; padding-top:12px; border-top:1px solid #f3f3f3; }
+    #tbAvailDpPop .dp-foot span{ font-size:13px; font-weight:bold; color:#333; cursor:pointer; }
+    #tbAvailDpPop .dp-foot span:hover{ text-decoration:underline; }
+
+    #tbAvailBody .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
+    #tbAvailBody .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
+    #tbAvailBody .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
+    #tbAvailBody .av-table tbody tr:last-child td{ border-bottom:none; }
+    #tbAvailBody .av-table tbody tr:hover{ background:#faf7f2; }
+    #tbAvailBody .av-hcell{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--hv-ink); }
+    #tbAvailBody .av-hcell .dot{ width:10px; height:10px; border-radius:50%; }
+    #tbAvailBody .av-open{ color:#2e7d4f; font-weight:700; }
+    #tbAvailBody .av-bad{ color:#c0283d; font-weight:700; }
+  </style>
+
+  <div class="tb-tabs">
+    <button class="tb-tab active" data-tt="bookings" onclick="tbTab('bookings')">Bookings</button>
+    <button class="tb-tab" data-tt="availability" onclick="tbTab('availability')">Availability</button>
+  </div>
+
+  <div id="tbBookingsBody">
   <div class="cards" id="todayCards"></div>
 
   <div class="panel">
@@ -585,6 +634,26 @@
     </div>
     <div class="scroll" style="max-height:340px; overflow-y:auto;">
       <div id="todayLogList" class="log-list"></div>
+    </div>
+  </div>
+  </div><!-- /#tbBookingsBody -->
+
+  <div id="tbAvailBody" style="display:none;">
+    <div class="panel">
+      <div class="avail-bar">
+        <label class="avail-lbl">Date</label>
+        <div class="tb-dp-wrap">
+          <button type="button" class="date-pill2" onclick="tbAvailOpenPicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbAvailDateLabel"></span></button>
+          <div id="tbAvailDpPop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
+            <div class="dp-head"><button type="button" onclick="tbAvailPickerNav(-1)">‹</button><span id="tbAvailDpTitle"></span><button type="button" onclick="tbAvailPickerNav(1)">›</button></div>
+            <div class="dp-grid" id="tbAvailDpGrid"></div>
+            <div class="dp-foot"><span onclick="tbAvailToday()">Today</span></div>
+          </div>
+        </div>
+        <button class="btn secondary" onclick="tbAvailToday()">Today</button>
+        <span class="muted avail-hint">Earliest a new guest can check in each haven, and their next booking.</span>
+      </div>
+      <div id="tbAvailList"></div>
     </div>
   </div>
 </div>
@@ -1087,6 +1156,138 @@
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
     const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = "Custom range";   // reset the range pill
     renderToday();
+  }
+
+  /* ---------- Availability tab (mirrors the dashboard Calendar → Availability view) ---------- */
+  const EARLIEST_CHECKIN_MIN = 540;   // 9:00 AM — earliest a guest may check in
+  const CLEANING_GAP_MIN = 60;        // 1h turnaround/cleaning gap required between two stays
+
+  // occupied window [start, end) in ABSOLUTE minutes; a 21h overnight stay blocks until its check-out morning
+  function bookingInterval(b){
+    const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
+    const start = midnightMin + bookingCheckinMin(b);
+    if(Number(b.stayHours) === 21 && b.checkout && b.checkout > b.checkin){
+      const coMidnight = Math.round(new Date(b.checkout + "T00:00:00").getTime() / 60000);
+      const checkoutMin = (bookingCheckinMin(b) + (21 + (Number(b.extend) || 0)) * 60) % 1440;
+      return { start, end: coMidnight + checkoutMin };
+    }
+    const dur = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+    return { start, end: start + dur };
+  }
+
+  // same haven source the dashboard uses (admin-saved havens, in their set order) so the list matches everywhere
+  function availHavenNames(){
+    try{
+      const saved = localStorage.getItem("staycation_havens");
+      if(saved){
+        const names = JSON.parse(saved).filter(h => h && !h.deleted)
+          .sort((a, b) => (a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9))
+          .map(h => h.name).filter(Boolean);
+        if(names.length) return names;
+      }
+    }catch(e){}
+    return ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","CasaBienca","CasaSiesta"];
+  }
+
+  // Bookings ⇄ Availability tab switch
+  function tbTab(view){
+    document.querySelectorAll(".tb-tab").forEach(t => t.classList.toggle("active", t.dataset.tt === view));
+    const isAvail = (view === "availability");
+    const bk = document.getElementById("tbBookingsBody"), av = document.getElementById("tbAvailBody");
+    const tools = document.querySelector(".head-tools");
+    if(bk) bk.style.display = isAvail ? "none" : "";
+    if(av) av.style.display = isAvail ? "" : "none";
+    if(tools) tools.style.display = isAvail ? "none" : "";   // the Yesterday/Today/Tomorrow + Refresh controls apply to Bookings only
+    if(isAvail) renderAvailability();
+  }
+
+  // availability date picker (single date; same mini-calendar look as the custom-range picker)
+  let tbAvailDate = null, tbAvailPickerMonth = null;
+  function tbAvailOpenPicker(e){
+    if(e && e.stopPropagation) e.stopPropagation();
+    const pop = document.getElementById("tbAvailDpPop"); if(!pop) return;
+    if(pop.style.display === "block"){ pop.style.display = "none"; return; }
+    const d = new Date((tbAvailDate || iso(today())) + "T00:00:00");
+    tbAvailPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    tbAvailRenderPicker();
+    pop.style.display = "block";
+  }
+  function tbAvailPickerNav(dir){
+    if(!tbAvailPickerMonth){ const d = new Date((tbAvailDate || iso(today())) + "T00:00:00"); tbAvailPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1); }
+    tbAvailPickerMonth = new Date(tbAvailPickerMonth.getFullYear(), tbAvailPickerMonth.getMonth() + dir, 1);
+    tbAvailRenderPicker();
+  }
+  function tbAvailToday(){ tbAvailDate = iso(today()); const p = document.getElementById("tbAvailDpPop"); if(p) p.style.display = "none"; renderAvailability(); }
+  function tbAvailPickDay(di){ tbAvailDate = di; const p = document.getElementById("tbAvailDpPop"); if(p) p.style.display = "none"; renderAvailability(); }
+  function tbAvailRenderPicker(){
+    const ttl = document.getElementById("tbAvailDpTitle"); if(!ttl || !tbAvailPickerMonth) return;
+    const y = tbAvailPickerMonth.getFullYear(), m = tbAvailPickerMonth.getMonth();
+    ttl.textContent = TB_MONTHS[m] + " " + y;
+    const todayIso = iso(today()), sel = tbAvailDate || iso(today());
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += '<div class="dp-wd">' + d + '</div>');
+    for(let i = 0; i < startDay; i++) html += '<div class="dp-day empty"></div>';
+    for(let d = 1; d <= dim; d++){
+      const di = iso(new Date(y, m, d));
+      html += '<div class="dp-day' + (di === todayIso ? " today" : "") + (di === sel ? " sel" : "") + '" onclick="tbAvailPickDay(\'' + di + '\')"><span class="n">' + d + '</span></div>';
+    }
+    document.getElementById("tbAvailDpGrid").innerHTML = html;
+  }
+  document.addEventListener("click", function(e){
+    const p = document.getElementById("tbAvailDpPop");
+    if(p && p.style.display === "block" && e.target && e.target.closest && !e.target.closest(".tb-dp-wrap")) p.style.display = "none";
+  });
+
+  // For the selected date, show each haven's earliest available check-in + its next booking.
+  function renderAvailability(){
+    bookings = loadBookings();   // reflect the latest saved bookings
+    if(!tbAvailDate) tbAvailDate = iso(today());
+    const D = tbAvailDate;
+    const lbl = document.getElementById("tbAvailDateLabel"); if(lbl) lbl.textContent = fmt(D);
+    const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
+    const dayEnd = dayAbs + 1440;
+    let floor = dayAbs + EARLIEST_CHECKIN_MIN;                                    // can't check in before 9 AM on the day
+    if(D === iso(today())) floor = Math.max(floor, Math.round(new Date().getTime() / 60000));   // for TODAY, no earlier than right now
+    const fmtAbs = function(absMin){
+      const dIso = iso(new Date(absMin * 60000));
+      const mi = absMin - Math.round(new Date(dIso + "T00:00:00").getTime() / 60000);
+      const t = minToTime(mi);
+      return dIso === D ? t : (fmt(dIso) + " · " + t);
+    };
+    const havenList = availHavenNames();
+    const rows = havenList.map(function(h){
+      const intervals = bookings.filter(function(b){ return b && !b.cancelled && b.haven === h && b.checkin; })
+        .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
+        .sort(function(a, b){ return a.ci - b.ci; });
+      // earliest free check-in at/after the 9 AM floor (chain past any overlapping occupancy + cleaning)
+      let availFrom = floor, changed = true, guard = 0;
+      while(changed && guard++ < 80){
+        changed = false;
+        intervals.forEach(function(it){ if(it.ci <= availFrom && it.freeAt > availFrom){ availFrom = it.freeAt; changed = true; } });
+      }
+      // the next booking starting at/after that free time — limits how long a new guest can stay
+      let next = null;
+      intervals.forEach(function(it){ if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
+      const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
+      const hcell = '<span class="av-hcell"><span class="dot" style="background:' + dot + '"></span>' + h + '</span>';
+      if(availFrom >= dayEnd){
+        return '<tr><td>' + hcell + '</td><td><span class="av-bad">Not available</span></td><td>—</td><td class="muted">free ' + fmtAbs(availFrom) + '</td></tr>';
+      }
+      // which stay lengths (6 / 10 / 21 hrs) fit before the next booking, keeping the cleaning gap
+      const windowMin = (next !== null) ? (next - availFrom) : Infinity;
+      const fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
+      if(!fits.length){
+        return '<tr><td>' + hcell + '</td><td><span class="av-bad">Not available</span></td><td>—</td><td>' + (next !== null ? fmtAbs(next) : "—") + '</td></tr>';
+      }
+      const availTxt = (availFrom <= floor) ? (minToTime(floor - dayAbs) + ' <span class="muted">(open)</span>') : minToTime(availFrom - dayAbs);
+      const hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
+      const nextTxt = (next !== null) ? fmtAbs(next) : '<span class="av-open">Open slot</span>';
+      return '<tr><td>' + hcell + '</td><td><b>' + availTxt + '</b></td><td>' + hoursTxt + '</td><td>' + nextTxt + '</td></tr>';
+    }).join("");
+    document.getElementById("tbAvailList").innerHTML = rows
+      ? '<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th>Next check-in</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="muted">No havens.</p>';
   }
 
   function renderToday(){
