@@ -1152,6 +1152,7 @@
     localStorage.setItem("shph_today_view", v);   // remember across refreshes
     document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
     const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = "Custom range";   // reset the range pill
+    if(typeof apTab === "function") apTab("arriving");   // a new date view shows its arrivals, not a stale Availability panel for an unrelated date
     renderToday();
   }
 
@@ -1408,6 +1409,11 @@
       ? others.map(b => todayRow(b, balanceOf(b), stayPill(b))).join("")
       : `<tr><td colspan="9" class="empty">Nobody else in-house or departing ${suffix}.</td></tr>`;
     document.getElementById("todayStayCount").textContent = others.length ? `(${others.length})` : "";
+
+    // if the Availability tab is the one on screen, keep it fresh too — Refresh and cross-tab
+    // updates both land here, and otherwise the availability table would show stale occupancy.
+    const availTab = document.querySelector('#arrivePanel .ap-tab[data-at="availability"]');
+    if(availTab && availTab.classList.contains("active")) renderAvailability();
   }
 
   // jump to another dashboard page — remember it so dashboard.html opens there

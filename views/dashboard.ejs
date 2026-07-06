@@ -6402,7 +6402,7 @@ function recalc(){
     const nights = stayHours === 21 ? stayNights(b.checkin, checkout) : 0;
     const extraHeads = Math.max(0, billablePax(guests) - PRICING.baseIncludedPax);
     const pax  = extraHeads * PRICING.addPax;
-    const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
+    const swimRate = (b.holiday || bookingIsHoliday({ checkin: b.checkin, checkout })) ? PRICING.swimHoliday : PRICING.swimRegular;   // date OR checkbox — must match computeTotal so the quote equals the saved total
     const swim = (Number(b.swimpass) || 0) * swimRate;
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
@@ -6618,7 +6618,7 @@ function buildConfirmationHTML(){
     const nights = stayH === 21 ? stayNights(checkin, checkout) : 0;
     const extraHeads = Math.max(0, billablePax(guests) - PRICING.baseIncludedPax);
     const pax = extraHeads * PRICING.addPax;
-    const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
+    const swimRate = (b.holiday || bookingIsHoliday({ checkin, checkout })) ? PRICING.swimHoliday : PRICING.swimRegular;   // date OR checkbox — keep the confirmation preview equal to the saved total
     const swim = b.swimpass * swimRate, tow = b.towels * PRICING.towel, ext = b.extend * PRICING.extendPerHr;
     const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
     const balance = Math.max(0, total - down - collected);
@@ -7082,7 +7082,9 @@ function renderProofPage(b){
     const swimpass = b ? (Number(b.swimpass) || 0) : (Number(document.getElementById("f_swimpass").value) || 0);
     const towels   = b ? (Number(b.towels) || 0)   : (Number(document.getElementById("f_towels").value) || 0);
     const extend   = b ? (Number(b.extend) || 0)   : (Number(document.getElementById("f_extend").value) || 0);
-    const holiday  = b ? !!b.holiday : document.getElementById("f_holiday").checked;
+    const holiday  = b
+        ? (!!b.holiday || bookingIsHoliday(b))
+        : (document.getElementById("f_holiday").checked || bookingIsHoliday({ checkin: document.getElementById("f_checkin").value, checkout: document.getElementById("f_checkout").value }));
     const swimRate = holiday ? PRICING.swimHoliday : PRICING.swimRegular;
     const addonsOnly = swimpass * swimRate + towels * PRICING.towel;   // Swimpass + Towels only
     const extendAmt  = extend * PRICING.extendPerHr;                   // Additional hours (Extend)
