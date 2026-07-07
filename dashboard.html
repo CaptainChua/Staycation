@@ -2802,7 +2802,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="page" id="page-deposit">
 <style>
   #page-deposit .dep-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
-  #page-deposit .dep-date-label{ margin-left:auto; font-size:13px; font-weight:700; color:var(--hv-ink); display:inline-flex; align-items:center; gap:7px; }
+  #page-deposit .dep-date-label{ font-size:13px; font-weight:700; color:var(--hv-ink); display:inline-flex; align-items:center; gap:7px; padding:8px 12px; background:var(--hv-cream, #f7efe6); border-radius:10px; white-space:nowrap; }
   #page-deposit .dep-date-label svg{ width:16px; height:16px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   #page-deposit .seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
   #page-deposit .seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
@@ -2845,8 +2845,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                 </div>
             </div>
-            <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;"></select>
             <span class="dep-date-label" title="Selected date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="depositDateLabel"></span></span>
+            <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;margin-left:auto;"></select>
         </div>
         <div style="overflow-x:auto;">
             <table class="clean-summary-table">
@@ -8823,7 +8823,13 @@ function sdRenderPicker(){
     }
     document.getElementById("sdDpGrid").innerHTML = html;
     const hint = document.getElementById("sdDpHint");
-    if(hint) hint.textContent = sdRangeMode ? (sdPendingStart ? "Now pick the end date" : "Pick the start date") : "";
+    if(hint){
+        if(sdRangeMode){
+            hint.textContent = sdPendingStart ? `Start ${fmt(sdPendingStart)} — now pick the end date` : "Pick the start date";
+        } else {
+            hint.textContent = di ? `Selected: ${fmt(di)}` : "";
+        }
+    }
 }
 function sdPickDay(ci){
     const di = document.getElementById("depositDate"), de = document.getElementById("depositDateEnd");
