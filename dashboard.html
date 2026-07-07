@@ -12677,13 +12677,17 @@ try{
         setTimeout(function(){ if(typeof openModal === "function") openModal(); }, 60);
     }
 }catch(e){}
-// deep link: dashboard.html?edit=<bookingId> (e.g. from Collection Reports, opened in a new tab)
+// deep link: dashboard.html?edit=<id> (from Collection Reports → Proof of Payment tab)
+//        or: dashboard.html?open=<id> (from Today's Booking → booking details tab)
 try{
-    const _editId = new URLSearchParams(location.search).get("edit");
-    if(_editId){
+    const _qp = new URLSearchParams(location.search);
+    const _editId = _qp.get("edit");
+    const _openId = _qp.get("open");
+    const _targetId = _editId || _openId;
+    if(_targetId){
         setTimeout(function(){
             try{
-                const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_editId); });
+                const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_targetId); });
                 if(_b){
                     if(window.__PARTNER__){
                         // partners are read-only: show the viewer, never the editable modal
@@ -12697,8 +12701,9 @@ try{
                         const _prevPage = localStorage.getItem("shph_dashboard_page");
                         if(typeof showPage === "function") showPage("calendar");
                         if(typeof openModal === "function") openModal(_b.id);
-                        // opened from Collection Reports to CHECK the payment → land on the Proof of Payment tab
-                        if(typeof bkGoPage === "function") bkGoPage(2);
+                        // ?edit → opened to CHECK the payment, land on Proof of Payment tab.
+                        // ?open → opened to view details, stay on the modal's default (details) tab.
+                        if(_editId && typeof bkGoPage === "function") bkGoPage(2);
                         try{ if(_prevPage) localStorage.setItem("shph_dashboard_page", _prevPage); else localStorage.removeItem("shph_dashboard_page"); }catch(e){}
                     }
                 }

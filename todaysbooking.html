@@ -93,6 +93,8 @@
   .btn-paid:hover{ opacity:.9; }
   .paid-tag{ color:#2e7d4f; font-size:12px; font-weight:700; }
   .edit-pay{ color:#2b6cb0; cursor:pointer; font-size:12px; margin-left:10px; }
+  .bk-code{ display:inline-block; margin-top:3px; color:#a56b2e; font-size:12px; font-weight:700; letter-spacing:.3px; text-decoration:none; cursor:pointer; }
+  .bk-code:hover{ text-decoration:underline; }
   .edit-pay:hover{ text-decoration:underline; }
   .muted{ color:#999; font-size:12px; }
   .hv-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
@@ -1006,7 +1008,7 @@
         : (over > 0 ? `<span style="color:#2e9e5b; font-weight:700;">+${peso(over)} over</span>` : '<span class="muted">—</span>');
     const addonLink = ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>`;
     return `<tr>
-        <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong></td>
+        <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong><br><a class="bk-code" href="/dashboard.html?open=${encodeURIComponent(b.id)}" title="Open booking details in Calendar">#${tbBookingCode(b)}</a></td>
         <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
         <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
         <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
