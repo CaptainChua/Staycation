@@ -5743,8 +5743,9 @@ function updatePaymentApprovalBadge(){
 //  • same-day / day-use stays (check-out not after check-in) → the NEXT day (returned tomorrow)
 function depReturnDate(b){
     if(!b || !b.checkout) return b && b.checkout;
-    if(b.checkin && !(b.checkout > b.checkin)) return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
-    return b.checkout;
+    // a security deposit is only returnable the DAY AFTER check-out — this gives staff time to
+    // inspect the room for damage before refunding (a Jul 5 check-out is returnable Jul 6).
+    return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
 }
 function depositsToReturn(){
     const t = iso(today());
@@ -8566,7 +8567,14 @@ function renderDeposit(){
                     : `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
                 statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button>`}</div>`;
             } else {
-                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
+                // a deposit can only be returned the day AFTER check-out — until then show when it opens up
+                const rd = depReturnDate(b);
+                const returnable = rd && rd <= _tToday;
+                if(returnable){
+                    statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
+                } else {
+                    statusCell = `<div class="dep-cell"><span class="dep-status held" style="opacity:.65;" title="Returnable the day after check-out">Returnable ${fmt(rd)}</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button></div>`;
+                }
             }
         } else {
             statusCell = `<span class="muted">No deposit</span>`;
@@ -8642,6 +8650,11 @@ function openDepReturn(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const returned = !!b.depositReturned;
+    // block returning a deposit before the day after check-out (unless it's already been returned/managed)
+    if(!returned){
+        const rd = depReturnDate(b);
+        if(rd && rd > iso(today())){ alert(`This deposit can only be returned starting ${fmt(rd)} — the day after check-out.`); return; }
+    }
     depReturnId = id;
     depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
