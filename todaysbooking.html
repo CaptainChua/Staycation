@@ -843,6 +843,9 @@
     <label for="addonTowels">Add towels</label>
     <input type="number" id="addonTowels" min="0" value="0" oninput="addonRecalc()">
 
+    <label for="addonHours">Add hours <span class="muted">(₱150/hr)</span></label>
+    <input type="number" id="addonHours" min="0" value="0" oninput="addonRecalc()">
+
     <label class="check-label" style="margin-top:12px;"><input type="checkbox" id="addonHoliday" onchange="addonRecalc()"> Holiday pool rate (₱300/pass)</label>
 
     <div class="pay-info" id="addonTotalInfo" style="margin-top:12px;"></div>
@@ -1939,16 +1942,17 @@
 
   /* ---------- late add-ons (pool pass / towels) added to an existing booking ---------- */
   let addonBookingId = null;
-  const TOWEL_RATE = 50, POOL_RATE = 150, POOL_RATE_HOLIDAY = 300;
+  const TOWEL_RATE = 50, POOL_RATE = 150, POOL_RATE_HOLIDAY = 300, EXTEND_RATE = 150;
   function openAddon(id){
     addonBookingId = id;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
     document.getElementById("addonInfo").innerHTML =
-      `<strong>${b.haven}</strong> — ${guest}<br>Current: <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg>${Number(b.swimpass)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg>${Number(b.towels)||0}</span> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+      `<strong>${b.haven}</strong> — ${guest}<br>Current: <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg>${Number(b.swimpass)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg>${Number(b.towels)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${Number(b.extend)||0}h</span> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
     document.getElementById("addonPool").value = 0;
     document.getElementById("addonTowels").value = 0;
+    document.getElementById("addonHours").value = 0;
     document.getElementById("addonHoliday").checked = !!b.holiday;
     addonRecalc();
     document.getElementById("addonOverlay").classList.add("show");
@@ -1956,8 +1960,9 @@
   function addonAddedAmount(){
     const pool = Number(document.getElementById("addonPool").value) || 0;
     const tow  = Number(document.getElementById("addonTowels").value) || 0;
+    const hrs  = Number(document.getElementById("addonHours").value) || 0;
     const poolRate = document.getElementById("addonHoliday").checked ? POOL_RATE_HOLIDAY : POOL_RATE;
-    return { pool, tow, added: pool * poolRate + tow * TOWEL_RATE };
+    return { pool, tow, hrs, added: pool * poolRate + tow * TOWEL_RATE + hrs * EXTEND_RATE };
   }
   function addonRecalc(){
     const { added } = addonAddedAmount();
@@ -1967,8 +1972,8 @@
   let _savingAddon = false;
   async function saveAddon(){
     if(addonBookingId == null) return;
-    const { pool, tow, added } = addonAddedAmount();
-    if(pool <= 0 && tow <= 0){ alert("Enter pool passes or towels to add."); return; }
+    const { pool, tow, hrs, added } = addonAddedAmount();
+    if(pool <= 0 && tow <= 0 && hrs <= 0){ alert("Enter pool passes, towels, or hours to add."); return; }
     if(_savingAddon) return;   // block double-click (a 2nd click would double-charge the add-ons)
     _savingAddon = true;
     try{
@@ -1978,20 +1983,22 @@
       // compute the new values WITHOUT mutating anything yet — so a failed save leaves state unchanged
       const newSwim  = (Number(b.swimpass) || 0) + pool;
       const newTow   = (Number(b.towels)   || 0) + tow;
+      const newExt   = (Number(b.extend)   || 0) + hrs;
       const newTotal = (Number(b.total)    || 0) + added;   // the late charge added to the bill
-      const newLog   = (b.addonLog || []).concat([{ pool, towels: tow, amount: added, at: new Date().toISOString(), by: currentUser() }]);
+      const newLog   = (b.addonLog || []).concat([{ pool, towels: tow, hours: hrs, amount: added, at: new Date().toISOString(), by: currentUser() }]);
       // PER-RECORD patch — updates only these fields on the live booking (can't clobber other data)
       let ok = false;
-      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: newSwim, towels: newTow, total: newTotal, addonLog: newLog } }) }); ok = res.ok; }catch(e){}
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: newSwim, towels: newTow, extend: newExt, total: newTotal, addonLog: newLog } }) }); ok = res.ok; }catch(e){}
       if(!ok){ alert("⚠️ Couldn't save the add-on — the server didn't confirm (slow / offline). Please try again."); return; }
       // server confirmed → NOW apply locally and adopt the fresh array
-      b.swimpass = newSwim; b.towels = newTow; b.total = newTotal; b.addonLog = newLog;
+      b.swimpass = newSwim; b.towels = newTow; b.extend = newExt; b.total = newTotal; b.addonLog = newLog;
       b.updatedAt = new Date().toISOString();
       bookings = data;
       try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
       const parts = [];
       if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
       if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
+      if(hrs) parts.push(`${hrs} hour${hrs > 1 ? "s" : ""}`);
       logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
       closeAddon();
       renderToday();
