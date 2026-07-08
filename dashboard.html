@@ -6375,25 +6375,24 @@ function updateHavenOptions(){
         }
     });
     sel.innerHTML = html || `<option value="">— No haven —</option>`;
-    sel.value = currentStillFree ? current : (firstFree || "");
+    // Respect the admin's explicit choice: keep the selected haven even when it's busy (it's still
+    // listed, labelled "free from…") instead of silently swapping their pick for another haven.
+    // A genuine clash is reported with a clear message on Save. Fall back only if nothing valid is selected.
+    sel.value = (current && HAVENS.includes(current)) ? current : (firstFree || HAVENS[0] || "");
     updateSlotOptions();
 }
-// when a haven is picked that's busy at the current time, snap the check-in time to when it frees
+// when a haven is picked that's busy earlier the SAME day, snap the check-in time to when it frees
+// (a valid booking then goes straight through). Never move the admin's chosen DATE and never swap
+// their chosen haven — if it still can't fit, Save reports exactly what's blocking it.
 function onHavenChange(){
     const sel = document.getElementById("f_haven");
     const opt = sel.options[sel.selectedIndex];
     const fm = opt && opt.dataset ? Number(opt.dataset.freemin) : NaN;
-    if(opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
-        const days = opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
-        if(days > 0){   // the haven only frees on a later date — move the check-in date to match
-            const ci = document.getElementById("f_checkin");
-            if(ci && ci.value) ci.value = iso(addDays(new Date(ci.value + "T00:00:00"), days));
-        }
-        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees
-        onStayChange();   // recompute check-out/totals and re-validate the haven list
-    } else {
-        updateSlotOptions();
+    const days = opt && opt.dataset && opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
+    if(days === 0 && opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
+        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees today
     }
+    onStayChange();   // recompute check-out/totals + refresh haven labels (keeps the pick)
 }
 
 // slot is now derived from the explicit check-in time (no separate slot picker)
