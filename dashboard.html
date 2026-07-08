@@ -12712,6 +12712,31 @@ renderUsers();
 applyPermissions();
 document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
 
+// Safety net: a signed-in user must NEVER be left with a completely blank sidebar (e.g. if
+// applyPermissions() was skipped by a render error, or their saved permissions failed to load).
+// Reveal the core front-desk pages so they can always navigate and are never locked out.
+function ensureSidebarNotEmpty(){
+    try{
+        const sb = document.querySelector(".sidebar");
+        if(!sb || window.__PARTNER__) return;                        // partners are handled separately
+        const items = Array.prototype.slice.call(sb.querySelectorAll(".nav-item"));
+        const anyVisible = !sb.classList.contains("perms-pending") && items.some(function(n){ return n.style.display !== "none"; });
+        if(anyVisible) return;                                        // menu already has items → nothing to do
+        const CORE = ["board","today","calendar","guestform","deposit"];
+        let shown = 0;
+        items.forEach(function(n){ if(CORE.indexOf(n.dataset.page) !== -1){ n.style.display = "flex"; shown++; } });
+        if(!shown) return;
+        sb.classList.remove("perms-pending");
+        sb.querySelectorAll(".nav-group").forEach(function(g){
+            let s = g.nextElementSibling, any = false;
+            while(s && !(s.classList && s.classList.contains("nav-group"))){
+                if(s.classList && s.classList.contains("nav-item") && s.style.display !== "none"){ any = true; break; }
+                s = s.nextElementSibling;
+            }
+            g.style.display = any ? "" : "none";
+        });
+    }catch(e){ console.error("ensureSidebarNotEmpty failed", e); }
+}
 // reopen the last page the admin was on (instead of resetting to Finance)
 // Payment Approval was removed (its job is now done on Collection Reports) — send anyone whose last
 // page was Payment Approval to Collection Reports instead of a now-inaccessible page.
@@ -12721,8 +12746,13 @@ try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") local
 const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
 const _brandedPage = BRANDED_PAGE[location.pathname.replace(/\/+$/, "").toLowerCase()];
 const savedPage = _brandedPage || localStorage.getItem("shph_dashboard_page");
-if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
-applyPermissions();
+// Bulletproof startup: a render error on the opening page must NEVER stop the sidebar /
+// permissions from initializing — otherwise the menu stays blank and the user is locked out.
+try { if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage); }
+catch(_e){ console.error("[startup] showPage failed for", savedPage, _e); }
+try { applyPermissions(); }
+catch(_e){ console.error("[startup] applyPermissions failed", _e); }
+ensureSidebarNotEmpty();   // last-resort: a signed-in user is never left with a blank menu
 if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
 
 // opened here from Today's Booking's "+ Add booking" → show the unified modal
