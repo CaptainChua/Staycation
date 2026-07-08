@@ -1518,6 +1518,17 @@
     // no recognised logged-in user → send to login instead of revealing anything
     if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
     const admin = IS_ADMIN;
+    // Branded per-user URL (e.g. /nicole-todaysbooking) is LOCKED to its owner — only that user
+    // (or an admin, so the owner is never locked out) may open it; a different signed-in user is
+    // bounced to the plain dashboard. Logged-out visitors were already sent to login just above.
+    const _bo = (location.pathname.replace(/\/+$/, "").toLowerCase().match(/^\/([a-z]+)-todaysbooking$/) || [])[1];
+    if(_bo && !admin){
+      const _me = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
+      if(_me !== _bo){
+        alert("This page is only for " + _bo.charAt(0).toUpperCase() + _bo.slice(1) + "'s account. You're signed in as someone else.");
+        window.location.href = "/dashboard.html"; return;
+      }
+    }
     const perms = currentPerms();
     // not allowed to view Today's Booking → bounce to the dashboard (it routes to an allowed page)
     if(!admin && !perms.includes("today")){ window.location.href = "/dashboard.html"; return; }

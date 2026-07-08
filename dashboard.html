@@ -12497,6 +12497,13 @@ function currentUserObj(){
     if(!name) return null;
     return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
 }
+// the account a branded shortcut URL belongs to (e.g. "nicole" on /nicole-board), or null.
+// Used to LOCK those URLs to their owner — only that user (or an admin) may open them.
+function brandedUrlOwner(){
+    const m = location.pathname.replace(/\/+$/, "").toLowerCase()
+        .match(/^\/([a-z]+)-(board|calendar|guestform|deposit|todaysbooking)$/);
+    return m ? m[1] : null;
+}
 // fail CLOSED: an unrecognised user gets no admin / no pages (prevents the
 // "full sidebar flashes for a limited user" glitch)
 function isAdminUser(){ const u = currentUserObj(); return !!(u && u.admin); }
@@ -12541,6 +12548,18 @@ function applyPermissions(){
     if(!currentUserObj()){
         if(_sessName && !_rehealedUsers){ _rehealedUsers = true; _repullUsersThenApply(); return; }
         window.location.href = window.__ON_PARTNER_PATH__ ? "/partner-login" : "/admin.html"; return;
+    }
+    // Branded per-user URLs (e.g. /nicole-board) are LOCKED to their owner. A different signed-in
+    // user (an admin is exempt so the owner is never locked out of their own site) is bounced to
+    // the plain dashboard. Logged-out visitors were already sent to the login page just above.
+    const _brandOwner = brandedUrlOwner();
+    if(_brandOwner && !isAdminUser()){
+        const _me = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
+        if(_me !== _brandOwner){
+            const _who = _brandOwner.charAt(0).toUpperCase() + _brandOwner.slice(1);
+            alert("This page is only for " + _who + "'s account. You're signed in as someone else.");
+            window.location.href = "/dashboard.html"; return;
+        }
     }
     const perms = currentPerms();
     const admin = isAdminUser();
