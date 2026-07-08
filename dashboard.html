@@ -5071,7 +5071,7 @@ function renderPicker(){
     const daysInMonth = new Date(y, m+1, 0).getDate();
     const todayIso = iso(today());
 
-    const allowPast = (typeof payrollIsAdmin === "function") ? payrollIsAdmin() : true; // admins can view past records
+    const allowPast = true; // anyone may browse past dates on the calendar (viewing past bookings is read-only)
     let html = "";
     ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
     for(let i=0;i<startDay;i++) html += `<div class="dp-day empty"></div>`;
@@ -5214,7 +5214,7 @@ function renderTable(){
                 <span class="edit" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 ${window.__PARTNER__ ? "" : `<span class="edit" onclick="openModal(${b.id})">Edit</span>
                 <span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>
-                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>`}
+                ${isAdminUser() ? `<span class="del" onclick="deleteBooking(${b.id})">Delete</span>` : ""}`}
             </td>
         </tr>`;
     }).join("");
@@ -5280,7 +5280,7 @@ function renderCancelled(){
             <td class="actions">
                 <span class="reinstate" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 <span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>
-                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
+                ${isAdminUser() ? `<span class="del" onclick="deleteBooking(${b.id})">Delete</span>` : ""}
             </td>
         </tr>`;
     }).join("");
@@ -5310,6 +5310,7 @@ function toggleDpRefund(id){
 
 async function deleteBooking(id){
     if(_partnerReadOnly()) return;
+    if(!isAdminUser()){ alert("Only an administrator can delete a booking. Please ask an admin, or use Cancel instead."); return; }
     if(!confirm("Delete this booking?")) return;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
