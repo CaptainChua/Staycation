@@ -518,6 +518,16 @@ app.get("/", renderPage("index"));
 app.get("/partners", renderPage("dashboard"));
 app.get("/partner-dashboard", renderPage("dashboard"));   // alias
 
+// Nicole's branded shortcut URLs — the same back-office pages behind friendlier addresses.
+// No auth change: each page still requires a logged-in user (the client bounces to the login
+// screen if none). Single path segment so the pages' relative assets still resolve to root.
+// The dashboard opens straight to the matching section, detected client-side (see dashboard.html).
+app.get("/nicole-todaysbooking", renderPage("todaysbooking"));
+app.get("/nicole-board",     renderPage("dashboard"));
+app.get("/nicole-calendar",  renderPage("dashboard"));
+app.get("/nicole-guestform", renderPage("dashboard"));
+app.get("/nicole-deposit",   renderPage("dashboard"));
+
 /* ---------------- Static assets ---------------- */
 // Client JS/CSS live in /public; images stay in /images.
 // The project root is intentionally NOT served, so server.js / data

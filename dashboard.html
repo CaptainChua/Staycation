@@ -12701,7 +12701,11 @@ document.getElementById("currentUserLabel").textContent = "Logged in as " + curr
 // Payment Approval was removed (its job is now done on Collection Reports) — send anyone whose last
 // page was Payment Approval to Collection Reports instead of a now-inaccessible page.
 try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") localStorage.setItem("shph_dashboard_page", "collections"); }catch(e){}
-const savedPage = localStorage.getItem("shph_dashboard_page");
+// Branded shortcut URLs (e.g. /nicole-board) open straight to that section, overriding the
+// remembered page. Access control still applies — showPage() ignores pages the user can't see.
+const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
+const _brandedPage = BRANDED_PAGE[location.pathname.replace(/\/+$/, "").toLowerCase()];
+const savedPage = _brandedPage || localStorage.getItem("shph_dashboard_page");
 if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
 applyPermissions();
 if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
