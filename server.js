@@ -496,6 +496,12 @@ function renderPage(name) {
         console.warn("[render] maintenance check failed for", name, "—", e.message);
       }
     }
+    // Never let the browser/CDN serve a STALE cached page HTML — the dashboard changes often and
+    // a cached old copy shows the wrong sidebar/menu. Always revalidate the HTML (assets in
+    // /public keep their own caching, so this doesn't hurt load speed meaningfully).
+    res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
+    res.set("Pragma", "no-cache");
+    res.set("Expires", "0");
     res.render(name, { seed, page: name }, (err, html) => {
       if (err) {
         console.error("Render error for", name, "—", err.message);
