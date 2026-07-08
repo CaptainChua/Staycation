@@ -3883,13 +3883,25 @@ function lastName(name){
 function endExcl(b){
     return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
 }
+// every booking id that belongs to the SAME reservation as `excludeId` — the booking
+// itself plus any linked haven-segments (they share a groupId). A stay must never count
+// as a conflict against its own records (e.g. extending a stay that has a linked segment,
+// or re-saving a booking whose earlier save left a same-group record).
+function reservationIds(excludeId){
+    const ids = new Set();
+    if(excludeId != null) ids.add(excludeId);
+    const b = excludeId != null ? bookings.find(x => x.id === excludeId) : null;
+    if(b && b.groupId) bookings.forEach(x => { if(x.groupId === b.groupId) ids.add(x.id); });
+    return ids;
+}
 // returns an existing booking that conflicts with `cand`, or null.
 // 10h/21h fully occupy the haven for overlapping dates; 6h allows a second
 // booking on the same date only if it uses the OTHER time slot.
 function findConflict(cand, excludeId){
+    const skip = reservationIds(excludeId);
     const cs = cand.checkin, ce = endExcl(cand);
     return bookings.find(b => {
-        if(b.id === excludeId) return false;
+        if(skip.has(b.id)) return false;         // skip this reservation's own records
         if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         const overlap = cs < endExcl(b) && b.checkin < ce; // half-open: back-to-back is OK
@@ -3929,9 +3941,10 @@ function intervalsClash(ai, bi){
     return ai.start < bi.end + CLEANING_GAP_MIN && bi.start < ai.end + CLEANING_GAP_MIN;
 }
 function findConflictAdmin(cand, excludeId){
+    const skip = reservationIds(excludeId);
     const ci = bookingInterval(cand);
     return bookings.find(b => {
-        if(b.id === excludeId) return false;
+        if(skip.has(b.id)) return false;         // skip this reservation's own records
         if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         return intervalsClash(ci, bookingInterval(b));   // overlap incl. the 2h cleaning gap
@@ -6312,10 +6325,11 @@ function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 // the minute-of-day a haven becomes free for `cand` = latest clashing check-out + cleaning gap,
 // or null if nothing clashes. Used to label/snap busy havens in the dropdown.
 function havenFreeAtMin(haven, cand){
+    const skip = reservationIds(editingId);
     const ci = bookingInterval(cand);
     let latestEnd = null;
     bookings.forEach(b => {
-        if(b.id === editingId) return;
+        if(skip.has(b.id)) return;               // skip this reservation's own records
         if(b.cancelled) return;
         if(b.haven !== haven) return;
         const bi = bookingInterval(b);   // absolute minutes — fine for comparing/clashing
@@ -7421,8 +7435,9 @@ async function saveBooking(){
             _sid: seg.sid                                        // stable id for retry-safe upsert (stripped before save)
         };
         sd.total = computeTotal(sd);
-        // can't clash with existing bookings (except the one being edited), the primary, or earlier segments
-        const clashSeg = bookings.find(b => b.id !== editingId && overlapClash(b, sd))
+        // can't clash with existing bookings (except this reservation's own records), the primary, or earlier segments
+        const skipSeg = reservationIds(editingId);
+        const clashSeg = bookings.find(b => !skipSeg.has(b.id) && overlapClash(b, sd))
             || (overlapClash(data, sd) ? data : null)
             || segDatas.find(s => overlapClash(s, sd));
         if(clashSeg){
