@@ -6095,11 +6095,11 @@ function onCheckinChange(){
     onStayChange();
 }
 
-// populate the check-in time options (hourly, 9 AM … 11 PM — earliest check-in is 9 AM)
+// populate the check-in time options (hourly, all day: 12 MN … 11 PM — staff may book any time)
 function fillCheckinTimes(){
     const sel = document.getElementById("f_checkinTime");
     let html = "";
-    for(let h = 9; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
     html += `<option value="__custom__">Custom time…</option>`;
     sel.innerHTML = html;
 }
@@ -7343,14 +7343,8 @@ async function saveBooking(){
         alert("Saturday check-ins are 21 hours only.");
         return;
     }
-    // earliest check-in is 9:00 AM (a same-day check-out pushes it later via the 2h cleaning gap).
-    // Admins are exempt — they may set an earlier custom time (e.g. 8:00 AM). The public website
-    // (booknow) keeps the 9:00 AM minimum; this exemption is dashboard/admin-only.
-    const ciMin = parseTimeMin(dashCheckinTimeValue());
-    if(ciMin != null && ciMin < EARLIEST_CHECKIN_MIN && !isAdminUser()){
-        alert("The earliest check-in time is 9:00 AM.");
-        return;
-    }
+    // Dashboard staff (admins and front desk alike) may book ANY check-in time — there is no
+    // 9:00 AM floor here. The public website (booknow) keeps its own 9:00 AM minimum separately.
 
     const data = {
         haven: document.getElementById("f_haven").value,
