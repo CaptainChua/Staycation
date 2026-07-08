@@ -430,7 +430,7 @@ app.use("/api", apiRouter);
 // Every page that has real content. Empty placeholder files are skipped.
 const PAGES = [
   "index", "havens", "booknow", "payment",
-  "admin", "dashboard", "todaysbooking", "Nicole", "payroll",
+  "admin", "dashboard", "todaysbooking", "Nicole", "nicole-dashboard", "payroll",
   "partner-login"
 ];
 
@@ -522,7 +522,7 @@ app.get("/partner-dashboard", renderPage("dashboard"));   // alias
 // No auth change: each page still requires a logged-in user (the client bounces to the login
 // screen if none). Single path segment so the pages' relative assets still resolve to root.
 // The dashboard opens straight to the matching section, detected client-side (see dashboard.html).
-app.get("/nicole-todaysbooking", renderPage("todaysbooking"));
+app.get("/nicole-todaysbooking", renderPage("nicole-dashboard"));   // Nicole's premium redesigned Today's Booking
 app.get("/nicole-board",     renderPage("dashboard"));
 app.get("/nicole-calendar",  renderPage("dashboard"));
 app.get("/nicole-guestform", renderPage("dashboard"));

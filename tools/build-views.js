@@ -17,7 +17,7 @@ const PUBLIC = path.join(ROOT, "public");
 
 const PAGES = [
   "index", "havens", "booknow", "payment",
-  "admin", "dashboard", "todaysbooking", "Nicole", "payroll",
+  "admin", "dashboard", "todaysbooking", "Nicole", "nicole-dashboard", "payroll",
   "partner-login"
 ];
 

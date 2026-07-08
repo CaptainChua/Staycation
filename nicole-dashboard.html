@@ -1,0 +1,2409 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Nicole · Today's Booking — Staycation Haven PH</title>
+<link rel="icon" href="images/logo.png">
+<style>
+  *{ box-sizing:border-box; }
+  body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f; background:#f1f2f4; }
+  .wrap{ max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
+
+  /* sidebar — matches dashboard.html */
+  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; }
+  .sidebar .brand{ font-size:16px; font-weight:bold; padding:0 22px 22px; border-bottom:1px solid #2c2c2c; margin-bottom:14px; line-height:1.3; }
+  .sidebar .brand-logo{ height:34px; vertical-align:middle; margin-right:6px; }
+  .sidebar .nav-item{ display:flex; align-items:center; gap:12px; padding:13px 22px; font-size:14px; color:#cfcfcf; cursor:pointer; border-left:3px solid transparent; transition:all .15s ease; }
+  .sidebar .nav-item:hover{ background:#262626; color:#fff; }
+  .sidebar .nav-item.active{ background:#262626; color:#fff; border-left-color:#ff385c; font-weight:bold; }
+  .sidebar .nav-item .ico{ font-size:17px; width:20px; text-align:center; }
+  .sidebar.perms-pending .nav-item{ display:none !important; }  /* hide until access is checked (no flash) */
+  .main{ margin-left:220px; }
+
+  @media (max-width:760px){
+    .sidebar{ position:static; width:auto; height:auto; display:flex; flex-wrap:wrap; padding:10px; }
+    .sidebar .brand{ width:100%; border:none; padding:8px 12px; margin-bottom:6px; }
+    .sidebar .nav-item{ border-left:none; border-radius:8px; padding:9px 12px; }
+    .sidebar .nav-item.active{ border-left:none; }
+    .main{ margin-left:0; }
+  }
+  @media (max-width:600px){
+    .wrap{ padding:16px 12px 50px; }
+    .app-header h1{ font-size:18px; }
+    .app-header .title-logo{ height:26px; }
+    .topbar{ flex-direction:column; align-items:flex-start; }
+    .view-tabs{ flex-wrap:wrap; }
+    .view-tab{ padding:8px 11px; font-size:12px; }
+    .panel{ padding:14px; border-radius:12px; }
+    .panel-head h2{ font-size:16px; }
+    .cards{ gap:10px; }
+    .number{ font-size:24px; } .number.money{ font-size:19px; }
+    table{ font-size:12px; }
+    th, td{ padding:8px 7px; }
+    .bk-grid{ grid-template-columns:1fr; }     /* stack add-booking fields */
+    .modal{ padding:20px; }
+    .modal-wide{ width:100%; }
+    .modal-actions{ flex-wrap:wrap; }
+    .modal-actions .btn{ flex:1; }
+  }
+
+  .app-header{ display:flex; align-items:center; justify-content:space-between; gap:15px; flex-wrap:wrap; margin-bottom:25px; }
+  .app-header h1{ font-size:26px; margin:0; display:flex; align-items:center; gap:8px; }
+  .app-header .title-logo{ height:34px; vertical-align:middle; }
+  .header-actions{ display:flex; align-items:center; gap:10px; }
+
+  .topbar{ display:flex; align-items:center; justify-content:space-between; gap:12px; margin-bottom:18px; }
+  .topbar .title{ display:flex; align-items:center; gap:12px; }
+  .topbar h1{ font-size:24px; margin:0; }
+  .btn{ border:none; border-radius:8px; padding:9px 16px; font-size:13px; font-weight:600; cursor:pointer; background:#ff385c; color:#fff; }
+  .btn.secondary{ background:#fff; color:#444; border:1px solid #ddd; }
+  .btn:hover{ opacity:.92; }
+  .view-tabs{ display:flex; align-items:center; gap:8px; flex-wrap:wrap; }
+  .view-tab{ border:1px solid #ddd; background:#fff; color:#555; font-size:13px; font-weight:600; padding:9px 14px; border-radius:8px; cursor:pointer; }
+  .view-tab:hover{ background:#f7f7f8; }
+  .view-tab.active{ background:#ff385c; color:#fff; border-color:#ff385c; }
+
+  .cards{ display:grid; grid-template-columns:repeat(auto-fit, minmax(180px, 1fr)); gap:16px; margin-bottom:22px; }
+  .card{ background:#fff; border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.05); }
+  .card h3{ font-size:13px; color:#777; font-weight:normal; margin:0 0 8px; }
+  .number{ font-size:28px; font-weight:bold; color:#ff385c; }
+  .number.money{ font-size:22px; }
+  .number.blue{ color:#2b6cb0; }
+
+  .panel{ background:#fff; border-radius:14px; padding:18px 20px; box-shadow:0 4px 14px rgba(0,0,0,.05); margin-bottom:22px; }
+  .panel-head{ display:flex; align-items:center; justify-content:space-between; margin-bottom:12px; }
+  .panel-head h2{ font-size:18px; margin:0; }
+
+  .mop-grid{ display:grid; grid-template-columns:repeat(auto-fit, minmax(150px, 1fr)); gap:12px; }
+  .mop-item{ background:#f7f7f8; border-radius:10px; padding:12px 14px; display:flex; flex-direction:column; gap:4px; }
+  .mop-label{ font-size:12px; color:#777; }
+  .mop-val{ font-size:18px; font-weight:700; color:#1f1f1f; }
+
+  table{ width:100%; border-collapse:collapse; font-size:13px; }
+  th, td{ text-align:left; padding:11px 10px; border-bottom:1px solid #f0f0f0; vertical-align:top; }
+  th{ color:#888; font-weight:bold; font-size:12px; text-transform:uppercase; letter-spacing:.3px; }
+
+  .status{ display:inline-block; font-size:11px; font-weight:700; padding:3px 9px; border-radius:20px; text-transform:lowercase; }
+  .status.paid{ background:#e3f5ea; color:#2e7d4f; }
+  .status.partial{ background:#fff4d6; color:#9a7700; }
+  .status.unpaid{ background:#fde3e7; color:#c0283d; }
+
+  .btn-paid{ border:none; background:#2e9e5b; color:#fff; padding:7px 16px; border-radius:8px; font-size:12px; font-weight:700; cursor:pointer; }
+  .btn-paid:hover{ opacity:.9; }
+  .paid-tag{ color:#2e7d4f; font-size:12px; font-weight:700; }
+  .edit-pay{ color:#2b6cb0; cursor:pointer; font-size:12px; margin-left:10px; }
+  .bk-code{ display:inline-block; margin-top:3px; color:#a56b2e; font-size:12px; font-weight:700; letter-spacing:.3px; text-decoration:none; cursor:pointer; }
+  .bk-code:hover{ text-decoration:underline; }
+  .edit-pay:hover{ text-decoration:underline; }
+  .muted{ color:#999; font-size:12px; }
+  .hv-dot{ display:inline-block; width:9px; height:9px; border-radius:50%; margin-right:7px; vertical-align:middle; }
+
+  /* payment popup */
+  .overlay{ position:fixed; inset:0; background:rgba(0,0,0,.45); display:none; align-items:center; justify-content:center; z-index:60; }
+  .overlay.show{ display:flex; }
+  .modal{ position:relative; background:#fff; border-radius:18px; padding:24px 26px; width:420px; max-width:92vw; max-height:90vh; overflow-y:auto; box-shadow:0 20px 50px rgba(0,0,0,.25); }
+  .modal-x{ position:absolute; top:15px; right:15px; width:30px; height:30px; border-radius:8px; background:#f3ede4; color:#7a6a55; font-size:13px; line-height:30px; text-align:center; cursor:pointer; transition:background .12s; }
+  .modal-x:hover{ background:#e8ded0; }
+  .modal-eyebrow{ font-size:11px; font-weight:700; letter-spacing:1.2px; color:var(--hv-terra); text-transform:uppercase; margin-bottom:3px; }
+  .modal-eyebrow:empty{ display:none; }
+  .modal h3{ margin:0 0 14px; font-size:22px; font-family:'Playfair Display',Georgia,serif; font-weight:700; color:var(--hv-ink); }
+  .modal label{ display:block; font-size:12.5px; color:var(--hv-ink); margin:16px 0 6px; font-weight:700; }
+  .modal label .lbl-muted{ color:var(--hv-muted); font-weight:500; }
+  .modal select, .modal input[type=number], .modal input[type=date], .modal input[type=text]{ width:100%; padding:11px 13px; border:1px solid var(--hv-line); border-radius:11px; font-family:inherit; font-size:14px; color:var(--hv-ink); background-color:var(--hv-cream); }
+  .modal select{ appearance:none; -webkit-appearance:none; padding-right:34px;
+    background-image:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23bd6e3f' stroke-width='2.2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m6 9 6 6 6-6'/%3E%3C/svg%3E");
+    background-repeat:no-repeat; background-position:right 12px center; background-size:13px; }
+  .modal select:focus, .modal input:focus{ outline:none; border-color:var(--hv-terra); background-color:#fff; }
+  /* warm summary panel */
+  .pay-info{ background:#faf3ea; border:1px solid #f0e2cf; border-radius:14px; padding:14px 16px; }
+  .pay-info .pi-head{ font-size:15px; color:var(--hv-ink); }
+  .pay-info .pi-head strong{ font-weight:700; }
+  .pay-info .pi-guest{ color:var(--hv-muted); }
+  .pay-info .pi-stats{ display:flex; margin:12px 0 12px; }
+  .pay-info .pi-stat{ flex:1; display:flex; flex-direction:column; gap:3px; }
+  .pay-info .pi-stat + .pi-stat{ border-left:1px solid #ecdcc8; padding-left:18px; }
+  .pay-info .pi-label{ font-size:10.5px; font-weight:700; letter-spacing:.5px; text-transform:uppercase; color:#a3937e; }
+  .pay-info .pi-val{ font-size:19px; font-weight:700; }
+  .pay-info .pi-val.paid{ color:#3f9e6a; }
+  .pay-info .pi-val.bal{ color:var(--hv-terra); }
+  .pay-info .pi-bar{ height:7px; border-radius:4px; background:#ecdcc8; overflow:hidden; }
+  .pay-info .pi-bar span{ display:block; height:100%; background:#3f9e6a; border-radius:4px; transition:width .2s; }
+  /* payments-made list */
+  .pay-list-title{ font-size:13px; font-weight:700; color:var(--hv-muted); margin:16px 0 8px; }
+  .pay-list-title .plt-count{ color:var(--hv-terra); }
+  .pay-list-item{ display:flex; align-items:center; gap:10px; padding:10px 12px; border:1px solid var(--hv-line); border-radius:11px; margin-bottom:8px; font-size:13px; background:#fff; }
+  .pay-list-item.active{ border-color:var(--hv-terra); background:#faf1e8; }
+  .pay-list-item .pli-check{ flex:none; width:28px; height:28px; border-radius:8px; background:#e7f3ec; color:#3f9e6a; display:flex; align-items:center; justify-content:center; }
+  .pay-list-item .pli-check svg{ width:14px; height:14px; fill:none; stroke:currentColor; stroke-width:3; }
+  .pay-list-item .pli-main{ cursor:pointer; flex:1; min-width:0; color:var(--hv-ink); }
+  .pay-list-item .pli-main strong{ font-weight:700; }
+  .pay-list-item .pli-main small{ display:block; color:var(--hv-muted); font-size:12px; margin-top:1px; }
+  .pay-list-item .pli-del{ color:#c0283d; cursor:pointer; font-size:12px; flex:none; }
+  /* styled proof upload card */
+  .pay-upload{ display:flex !important; align-items:center; gap:12px; border:1.5px dashed #d9b48f; border-radius:12px; padding:12px 14px; cursor:pointer; background:#fff; transition:background .12s,border-color .12s; }
+  .pay-upload:hover, .pay-upload.drag{ background:#fdf7ef; border-color:var(--hv-terra); }
+  .pay-upload input{ display:none; }
+  .pay-upload .pu-ico{ flex:none; width:38px; height:38px; border-radius:10px; background:var(--hv-terra); color:#fff; display:flex; align-items:center; justify-content:center; }
+  .pay-upload .pu-ico svg{ width:18px; height:18px; fill:none; stroke:currentColor; stroke-width:2; }
+  .pay-upload .pu-body{ min-width:0; }
+  .pay-upload .pu-body b{ display:block; font-size:13px; color:var(--hv-terra); font-weight:700; }
+  .pay-upload .pu-name{ display:block; font-size:12px; color:var(--hv-muted); margin-top:1px; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .pay-preview{ width:140px; height:140px; object-fit:cover; margin-top:10px; border-radius:11px; display:none; border:1px solid var(--hv-line); cursor:zoom-in; }
+  .modal-actions{ display:flex; justify-content:flex-end; gap:10px; margin-top:20px; }
+  /* full-size proof viewer */
+  .img-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:120; cursor:zoom-out; }
+  .img-lightbox.show{ display:flex; }
+  .img-lightbox img{ max-width:92vw; max-height:92vh; border-radius:8px; }
+
+  /* add-booking modal */
+  .modal-wide{ width:560px; max-height:90vh; overflow-y:auto; }
+  .bk-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
+  .bk-field{ display:flex; flex-direction:column; }
+  .bk-field.full{ grid-column:1 / -1; }
+  .bk-field label{ font-size:12px; color:#777; margin:0 0 5px; font-weight:600; }
+  .bk-field input, .bk-field select, .bk-field textarea{
+    width:100%; padding:10px; border:1px solid #d9d9d9; border-radius:8px;
+    font-family:inherit; font-size:14px; background:#fafafa;
+  }
+  .bk-field input:focus, .bk-field select:focus, .bk-field textarea:focus{ outline:none; border-color:#ff385c; background:#fff; }
+  .bk-field input[readonly]{ background:#f0f0f0; color:#555; }
+  .guest-row{ display:flex; gap:8px; margin-bottom:8px; align-items:center; }
+  .guest-row input.gfirst, .guest-row input.glast{ flex:1; min-width:0; }
+  .guest-row input.gage{ width:90px; }
+  .guest-row .gdel{ color:#d63a4f; cursor:pointer; font-size:18px; border:none; background:none; }
+  .add-guest{ background:#fff; color:#444; border:1px solid #ddd; }
+  .breakdown{ font-size:11px; color:#999; margin-top:6px; line-height:1.5; }
+  .check-label{ display:flex; align-items:center; gap:8px; font-size:13px; color:#555; font-weight:normal; }
+  .empty{ text-align:center; color:#aaa; padding:30px; }
+  .scroll{ overflow-x:auto; }
+  /* activity log rows */
+  .log-list{ display:flex; flex-direction:column; }
+  .log-row{ display:grid; grid-template-columns:190px 150px 1fr; gap:12px; align-items:baseline;
+            padding:9px 4px; border-bottom:1px solid #f0ede8; font-size:13px; }
+  .log-row:last-child{ border-bottom:none; }
+  .log-when{ color:#999; font-size:12px; white-space:nowrap; }
+  .log-user{ font-weight:700; color:var(--hv-terra-d, #b5651d); }
+  .log-action{ color:#444; }
+  @media(max-width:760px){ .log-row{ grid-template-columns:1fr; gap:2px; } }
+  @media(max-width:760px){ .cards{ grid-template-columns:repeat(2,1fr); } }
+</style>
+
+<!-- ===== "Warm Hospitality" theme + Airbnb-style font + new sidebar (matches dashboard) ===== -->
+<link href="https://fonts.googleapis.com/css2?family=Manrope:wght@400;500;600;700;800&display=swap" rel="stylesheet">
+<style id="hv-port">
+  :root{
+    --hv-cream:#f6f2ec; --hv-ink:#2f2a25; --hv-muted:#9a8f86; --hv-gold:#b8923a;
+    --hv-terra:#bd6e3f; --hv-terra-d:#a85f33; --hv-line:#ece4d8;
+    --hv-sidebar:#2a2421; --hv-sidebar-2:#3a322c; --hv-sidebar-mut:#9b8f84;
+  }
+  *{ font-family:'Manrope',-apple-system,BlinkMacSystemFont,'Segoe UI',Roboto,Helvetica,Arial,sans-serif; }
+  body{ background:var(--hv-cream); color:var(--hv-ink); }
+
+  /* ---- sidebar redesign ---- */
+  .sidebar{ background:var(--hv-sidebar); color:#d9cfc5; padding:18px 12px; }
+  .sidebar .brand{ display:flex; align-items:center; gap:11px; padding:6px 6px 18px; margin-bottom:6px;
+    border-bottom:1px solid #403730; line-height:1.15; font-size:initial; font-weight:normal; }
+  .sidebar .brand .hv-logo{ width:38px; height:38px; border-radius:10px; background:var(--hv-terra); color:#fff;
+    display:flex; align-items:center; justify-content:center; flex:none; font-size:20px; font-weight:800; }
+  .sidebar .brand .hv-brandtext{ font-size:14.5px; font-weight:700; color:#fff; letter-spacing:.3px; }
+  .sidebar .brand .hv-brandtext small{ display:block; font-size:10px; font-weight:600; letter-spacing:2px; color:var(--hv-sidebar-mut); }
+  .sidebar .nav-group{ font-size:10px; letter-spacing:1.6px; color:#6f6258; font-weight:700; margin:16px 12px 6px; text-transform:uppercase; }
+  .sidebar .nav-item{ gap:11px; padding:9px 12px; margin:1px 4px; border-radius:9px; border-left:none; white-space:nowrap;
+    font-size:13.5px; font-weight:500; color:#cabdb1; }
+  .sidebar .nav-item:hover{ background:#352d28; color:#fff; }
+  .sidebar .nav-item.active{ background:var(--hv-sidebar-2); color:#fff; border-left:none; font-weight:600; }
+  .sidebar .nav-item .ico{ width:18px; height:18px; display:flex; align-items:center; justify-content:center; font-size:0; }
+  .sidebar .nav-item svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+  .sidebar.perms-pending .nav-group{ display:none; }
+  .nav-badge{ display:inline-flex; align-items:center; justify-content:center; min-width:19px; height:19px; padding:0 5px; margin-left:auto; background:var(--hv-terra); color:#fff; border-radius:20px; font-size:11px; font-weight:700; }
+  .nav-badge:empty{ display:none; }
+  .sidebar .brand img.hv-logo{ object-fit:contain; background:#fff; padding:3px; }
+
+  /* ---- components ---- */
+  .btn{ background:var(--hv-terra); border-radius:10px; }
+  .btn:hover{ background:var(--hv-terra-d); }
+  .btn.secondary, .btn.ghost{ background:#fff; color:var(--hv-ink); border:1px solid var(--hv-line); }
+  .card, .panel{ border:1px solid var(--hv-line); box-shadow:0 6px 20px rgba(80,60,30,.06); border-radius:16px; }
+  .number{ color:var(--hv-terra); }
+  .view-tab.active{ background:var(--hv-ink); color:#fff; border-color:var(--hv-ink); }
+  .pay-list-item.active{ border-color:var(--hv-terra); background:#faf1e8; }
+  th{ color:var(--hv-muted); }
+  th, td{ border-bottom-color:var(--hv-line); }
+  tbody tr:hover{ background:#faf6ee; }
+  .modal select:focus, .modal input:focus,
+  .bk-field input:focus, .bk-field select:focus, .bk-field textarea:focus{ border-color:var(--hv-terra); }
+</style>
+
+<!-- ===== exact mockup layout for Today's Booking ===== -->
+<style id="hv-tb-layout">
+  /* full-width breadcrumb top bar */
+  .appbar{ display:flex; align-items:center; gap:14px; background:#fff; border-bottom:1px solid var(--hv-line);
+    padding:15px 28px; position:sticky; top:0; z-index:25; }
+  .appbar .crumb{ font-size:14px; color:var(--hv-muted); }
+  .appbar .crumb a{ color:var(--hv-muted); cursor:pointer; text-decoration:none; }
+  .appbar .crumb a:hover{ color:var(--hv-terra); }
+  .appbar .crumb b{ color:var(--hv-ink); font-weight:700; }
+  .appbar .spacer{ flex:1; }
+  .appbar .who{ font-size:13px; color:var(--hv-muted); }
+  .appbar .who b{ color:var(--hv-ink); font-weight:700; }
+  .appbar .avatar{ width:38px; height:38px; border-radius:50%; background:#efe7da; color:#8a6f4f;
+    display:flex; align-items:center; justify-content:center; font-weight:800; font-size:14px; flex:none; }
+  .wrap{ max-width:none; padding:28px 32px 60px; }   /* fill the screen like the dashboard */
+
+  /* page-title row */
+  .topbar{ align-items:flex-end; margin:6px 0 22px; }
+  .topbar .title h1{ font-size:30px; font-weight:800; letter-spacing:-.02em; margin:0; color:var(--hv-ink); }
+  .topbar .title p{ margin:4px 0 0; color:var(--hv-muted); font-size:13.5px; }
+  .head-tools{ display:flex; align-items:center; gap:10px; flex-wrap:wrap; }
+  .seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
+  .seg .view-tab{ border:none; border-radius:0; background:none; color:var(--hv-muted); font-weight:600; padding:8px 15px; }
+  .seg .view-tab:hover{ background:#faf6ee; }
+  .seg .view-tab.active{ background:var(--hv-ink); color:#fff; }
+
+  /* summary cards with icon chips + sub-labels */
+  .cards{ grid-template-columns:repeat(auto-fit, minmax(210px,1fr)); }
+  .card{ padding:18px 18px 16px; }
+  .card .card-top{ display:flex; align-items:flex-start; justify-content:space-between; gap:10px; }
+  .card .card-label{ font-size:11px; letter-spacing:.6px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; }
+  .card .card-ico{ width:34px; height:34px; border-radius:10px; display:flex; align-items:center; justify-content:center; flex:none; }
+  .card .card-ico svg{ width:18px; height:18px; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .card .number{ font-size:30px; font-weight:800; margin-top:10px; color:var(--hv-ink); }
+  .card .card-sub{ font-size:12px; color:var(--hv-muted); margin-top:6px; }
+  .ico-green{ background:#e7f3ec; } .ico-green svg{ stroke:#3f9e6a; }
+  .ico-terra{ background:#f6e7da; } .ico-terra svg{ stroke:var(--hv-terra); }
+  .ico-brown{ background:#efe7df; } .ico-brown svg{ stroke:#6f5b48; }
+  .ico-gold{ background:#f5ecd6; } .ico-gold svg{ stroke:var(--hv-gold); }
+
+  /* payment-method boxes */
+  .mop-grid{ grid-template-columns:repeat(auto-fit, minmax(150px,1fr)); }
+  .mop-item{ background:#faf6ee; border:1px solid var(--hv-line); border-radius:12px; padding:13px 15px; }
+  .mop-label{ color:var(--hv-muted); font-size:12px; }
+  .mop-val{ font-size:19px; font-weight:800; color:var(--hv-ink); }
+
+  /* status pills (mockup variants) */
+  .status{ text-transform:none; padding:4px 11px 4px 9px; }
+  .status::before{ content:""; display:inline-block; width:7px; height:7px; border-radius:50%;
+    margin-right:6px; vertical-align:middle; background:currentColor; }
+  .status.confirmed{ background:#f6ecd9; color:#9a7700; }
+  .status.inhouse{ background:#e7f3ec; color:#2e7d4f; }
+  .status.departing{ background:#f6e7da; color:var(--hv-terra-d); }
+  .status.paid{ background:#e3f5ea; color:#2e7d4f; }
+
+  .panel-head h2{ font-size:17px; font-weight:800; display:flex; align-items:center; gap:9px; }
+  .panel-head h2 .sec-ico{ display:inline-flex; align-items:center; }
+  .panel-head h2 .sec-ico svg{ width:18px; height:18px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+  .addon{ display:inline-flex; align-items:center; gap:4px; margin-right:11px; white-space:nowrap; font-weight:600; }
+  .addon-ico{ width:15px; height:15px; stroke:var(--hv-gold); fill:none; stroke-width:1.7; stroke-linecap:round; stroke-linejoin:round; }
+</style>
+<!-- ===== Mobile top bar + page dropdown (desktop is untouched) ===== -->
+<style>
+  .m-topbar{ display:none; }
+  .m-navsearch{ display:none; width:calc(100% - 8px); margin:4px 4px 10px; padding:10px 13px; border:none; border-radius:10px; background:rgba(255,255,255,.08); color:#fff; font-size:14px; font-family:inherit; }
+  .m-navsearch::placeholder{ color:#9b8f84; }
+  .sidebar-backdrop{ display:none; position:fixed; inset:0; background:rgba(0,0,0,.4); z-index:44; }
+  @media (max-width:760px){
+    .m-topbar{ display:flex; align-items:center; gap:10px; position:fixed; top:0; left:0; right:0; height:60px; padding:9px 12px; background:#2a2421; z-index:46; }
+    .m-logo{ width:42px; height:42px; border-radius:11px; background:#fff; display:flex; align-items:center; justify-content:center; flex:none; overflow:hidden; font-weight:800; color:var(--hv-terra,#bd6e3f); }
+    .m-logo img{ width:100%; height:100%; object-fit:contain; padding:4px; }
+    .m-pagepick{ flex:1; min-width:0; display:flex; align-items:center; gap:9px; background:rgba(255,255,255,.07); border:1px solid rgba(255,255,255,.13); border-radius:12px; padding:6px 12px; color:#fff; cursor:pointer; font-family:inherit; }
+    .m-pp-ico{ flex:none; width:20px; height:20px; }
+    .m-pp-ico svg{ width:20px; height:20px; stroke:var(--hv-terra,#d2935f); fill:none; stroke-width:1.8; }
+    .m-pp-text{ flex:1; min-width:0; text-align:left; }
+    .m-pp-eyebrow{ display:block; font-size:9px; letter-spacing:1.3px; color:#b9a999; text-transform:uppercase; line-height:1.2; }
+    .m-pp-name{ display:block; font-size:14px; font-weight:700; white-space:nowrap; overflow:hidden; text-overflow:ellipsis; line-height:1.3; }
+    .m-pp-caret{ flex:none; width:18px; height:18px; stroke:#c9b9ab; fill:none; stroke-width:2; transition:transform .2s; }
+    body.nav-open .m-pp-caret{ transform:rotate(180deg); }
+    .m-add{ flex:none; width:44px; height:44px; border:none; border-radius:12px; background:var(--hv-terra,#bd6e3f); color:#fff; font-size:26px; line-height:1; display:flex; align-items:center; justify-content:center; cursor:pointer; }
+    .sidebar{ position:fixed !important; top:64px; left:10px; right:10px; width:auto !important; height:auto !important; max-height:calc(100vh - 80px); overflow-y:auto; display:block !important; border-radius:16px; margin:0 !important; padding:8px 8px 12px !important; z-index:45; box-shadow:0 18px 50px rgba(0,0,0,.5); transform:translateY(-10px); opacity:0; pointer-events:none; transition:opacity .18s ease, transform .18s ease; }
+    .sidebar.open{ transform:translateY(0); opacity:1; pointer-events:auto; }
+    .sidebar .brand{ display:none !important; }
+    .m-navsearch{ display:block; }
+    .sidebar .nav-group{ display:block !important; }
+    .sidebar .nav-item{ width:auto !important; border-radius:10px !important; }
+    .sidebar .nav-item.active{ background:rgba(189,110,63,.20) !important; color:#fff !important; }
+    .sidebar .nav-item.active::after{ content:""; margin-left:auto; flex:none; width:18px; height:18px; background:url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' viewBox='0 0 24 24' fill='none' stroke='%23d2935f' stroke-width='2.6' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpath d='m5 12 5 5 9-9'/%3E%3C/svg%3E") center/contain no-repeat; }
+    .main{ margin-left:0 !important; padding-top:50px; }
+    .sidebar-backdrop.show{ display:block; }
+    /* the new top bar replaces the breadcrumb + add-booking, so hide those on mobile */
+    .appbar .crumb{ display:none; }
+    .appbar #addBookingBtn{ display:none; }
+    .appbar{ justify-content:flex-end; }
+  }
+  /* ===== Booking lists become cards on mobile (Arriving / In-house) ===== */
+  @media (max-width:760px){
+    .scroll{ overflow:visible !important; }
+    .scroll table, .scroll thead, .scroll tbody, .scroll tr, .scroll td{ display:block; }
+    .scroll thead{ display:none; }
+    .scroll tbody tr{ position:relative; display:flex; flex-wrap:wrap; align-items:flex-start; background:#fff; border:1px solid var(--hv-line); border-radius:14px; padding:14px 16px; margin-bottom:12px; box-shadow:0 4px 14px rgba(80,60,30,.05); }
+    .scroll tbody td{ border:none !important; padding:0 !important; }
+    .scroll tbody td:nth-child(1){ flex:0 0 100%; font-size:16px; padding-right:84px !important; margin-bottom:7px; }
+    .scroll tbody td:nth-child(8){ position:absolute; top:14px; right:16px; }
+    .scroll tbody td:nth-child(2){ flex:0 0 100%; padding-bottom:12px !important; margin-bottom:12px; border-bottom:1px solid var(--hv-line) !important; }
+    .scroll tbody td:nth-child(3), .scroll tbody td:nth-child(4), .scroll tbody td:nth-child(5){ flex:0 0 33.33%; font-size:13px; color:var(--hv-ink); }
+    .scroll tbody td:nth-child(3)::before{ content:"CHECK-IN"; }
+    .scroll tbody td:nth-child(4)::before{ content:"CHECK-OUT"; }
+    .scroll tbody td:nth-child(5)::before{ content:"STAY"; }
+    .scroll tbody td:nth-child(3)::before, .scroll tbody td:nth-child(4)::before, .scroll tbody td:nth-child(5)::before{ display:block; font-size:10px; letter-spacing:.5px; color:var(--hv-muted); font-weight:700; margin-bottom:3px; }
+    .scroll tbody td:nth-child(6), .scroll tbody td:nth-child(7){ display:none; }
+    .scroll tbody td:nth-child(9){ flex:0 0 100%; margin-top:14px; display:flex; gap:12px; justify-content:flex-end; align-items:center; flex-wrap:wrap; }
+    .scroll tbody td.empty{ flex:0 0 100%; text-align:center; padding:18px 0 !important; }
+  }
+  /* ===== Compact mobile header + 2-column cards (match the clean layout) ===== */
+  .user-pill{ display:contents; }   /* desktop: behaves exactly as before */
+  @media (max-width:760px){
+    /* 2-column summary cards (override the warm-theme auto-fit that forced 1 column) */
+    .cards{ grid-template-columns:repeat(2,1fr) !important; gap:10px !important; }
+    .cards .card:nth-child(5){ grid-column:1 / -1; }   /* "Collected" spans full width */
+    /* smaller title so it doesn't blow up into a giant wrapping block */
+    .topbar .title h1{ font-size:22px !important; line-height:1.15; }
+    .topbar .title p{ font-size:12px; }
+    /* hide "Logged in as Admin" text and the Refresh button on mobile */
+    .appbar .who{ display:none !important; }
+    .head-tools > .btn.secondary{ display:none !important; }
+    /* clean dark "[A] Logout" pill */
+    .appbar{ padding:8px 14px !important; }
+    .user-pill{ display:flex !important; align-items:center; gap:6px; background:#2a2421; border-radius:24px; padding:4px; }
+    .user-pill .avatar{ order:-1; width:32px !important; height:32px !important; background:var(--hv-terra) !important; color:#fff !important; font-size:13px; }
+    .user-pill .btn.secondary{ display:inline-flex !important; align-items:center; background:transparent !important; border:none !important; color:#fff !important; padding:2px 12px 2px 2px !important; font-weight:600; font-size:13px; box-shadow:none !important; }
+  }
+  /* ===== Compact sizing so everything fits one mobile screen (beats the warm-theme rules) ===== */
+  @media (max-width:760px){
+    .wrap{ padding:14px 12px 40px !important; }
+    /* center the title + filter buttons */
+    .topbar{ flex-direction:column !important; align-items:center !important; margin:4px 0 12px !important; }
+    .topbar .title{ flex-direction:column !important; align-items:center !important; gap:1px !important; text-align:center; width:100%; }
+    .topbar .title h1{ font-size:21px !important; }
+    .topbar .title p{ font-size:11.5px !important; margin-top:1px !important; }
+    .head-tools{ width:100% !important; justify-content:center !important; }
+    .seg .view-tab{ padding:6px 11px !important; font-size:12px !important; }
+    .cards{ gap:8px !important; margin-bottom:11px !important; }
+    .card{ padding:9px 11px !important; }
+    .card .card-top{ gap:6px !important; }
+    .card .card-label{ font-size:9.5px !important; letter-spacing:.3px !important; }
+    .card .card-ico{ width:26px !important; height:26px !important; border-radius:8px !important; }
+    .card .card-ico svg{ width:14px !important; height:14px !important; }
+    .card .number{ font-size:19px !important; margin-top:3px !important; }
+    .card .number.money{ font-size:18px !important; }
+    .card .card-sub{ font-size:10.5px !important; margin-top:2px !important; }
+    .panel{ padding:11px 12px !important; margin-bottom:11px !important; }
+    .panel-head h2{ font-size:14px !important; }
+    .panel-head h2 .sec-ico svg{ width:15px !important; height:15px !important; }
+    .mop-grid{ grid-template-columns:repeat(3,1fr) !important; gap:7px !important; }
+    .mop-item{ padding:8px 9px !important; }
+    .mop-label{ font-size:9.5px !important; }
+    .mop-val{ font-size:14px !important; }
+    .scroll tbody tr{ padding:11px 13px !important; }
+    .scroll tbody td:nth-child(1){ font-size:14px !important; }
+  }
+</style>
+<!-- ===== Nicole premium skin (gold palette + DM Serif headings + hero greeting) ===== -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style id="nicole-skin">
+  :root{
+    --hv-cream:#f4efe6; --hv-ink:#1c1a17; --hv-muted:#8a8377; --hv-line:#e6ddcd;
+    --hv-terra:#a9842b; --hv-terra-d:#8a6c22; --hv-gold:#caa23f;
+    --hv-sidebar:#1c1a17; --hv-sidebar-2:#2a2620;
+  }
+  body{ background:var(--hv-cream); }
+
+  /* serif display headings */
+  .topbar .title h1, .panel-head h2, .modal h3, .nh-greet, .nh-clock{
+    font-family:'DM Serif Display', Georgia, 'Times New Roman', serif !important; font-weight:400; letter-spacing:0;
+  }
+  .topbar .title h1{ font-size:32px; }
+
+  /* primary CTA → warm terracotta gradient (matches the mockup) */
+  .btn{ background:linear-gradient(180deg,#c06a35,#a5561f); box-shadow:0 8px 18px -10px rgba(160,80,30,.7); }
+  .btn:hover{ background:linear-gradient(180deg,#b45f2c,#98501c); }
+  .btn.secondary, .btn.ghost{ background:#fff; }
+
+  /* softer, more premium cards + panels */
+  .card, .panel{ border-radius:18px; box-shadow:0 18px 40px -34px rgba(80,60,20,.45); }
+  .card{ padding:20px 20px 18px; }
+  .card .number{ font-size:32px; }
+
+  /* the 5th stat card ("Collected today") → dark gold hero card, like the mockup */
+  .cards .card:nth-child(5){ background:linear-gradient(160deg,#1f1d19,#2c281f); border-color:#35301f; color:#fff; }
+  .cards .card:nth-child(5) .card-label{ color:#b9ad92; }
+  .cards .card:nth-child(5) .number{ color:#f0d488; }
+  .cards .card:nth-child(5) .card-sub{ color:#b9ad92; }
+  .cards .card:nth-child(5) .card-ico{ background:rgba(230,197,121,.16); }
+  .cards .card:nth-child(5) .card-ico svg{ stroke:#e6c579; }
+
+  /* sidebar brand + active item */
+  .sidebar .brand img.hv-logo{ background:#fff; border-radius:11px; padding:4px; }
+  .sidebar .brand .hv-brandtext{ font-family:'DM Serif Display',serif; font-size:16px; font-weight:400; }
+  .sidebar .brand .hv-brandtext small{ font-family:'Manrope',sans-serif; letter-spacing:2.5px; color:#a9842b; }
+  .sidebar .nav-item.active{ background:linear-gradient(100deg, rgba(169,132,43,.22), rgba(169,132,43,.05)); box-shadow:inset 0 0 0 1px rgba(169,132,43,.3); }
+  .sidebar .nav-item.active svg{ stroke:#e6c579; }
+  .seg .view-tab.active{ background:var(--hv-ink); }
+
+  /* hero greeting card */
+  .nicole-hero{ display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center;
+    background:linear-gradient(115deg,#1c1a17 0%, #2a2620 55%, #3a3226 100%);
+    border-radius:22px; padding:28px 32px; color:#fff; margin:2px 0 24px; position:relative; overflow:hidden; }
+  .nicole-hero::after{ content:""; position:absolute; right:-40px; top:-60px; width:280px; height:280px;
+    background:radial-gradient(circle, rgba(230,197,121,.20), transparent 68%); pointer-events:none; }
+  .nicole-hero .nh-eyebrow{ color:#e6c579; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; margin-bottom:8px; position:relative; }
+  .nicole-hero .nh-greet{ font-size:38px; line-height:1.05; margin:0 0 8px; color:#fff; position:relative; }
+  .nicole-hero .nh-sub{ color:rgba(255,255,255,.62); font-size:15px; margin:0; max-width:460px; line-height:1.55; position:relative; }
+  .nicole-hero .nh-right{ text-align:right; position:relative; padding-left:20px; border-left:1px solid rgba(255,255,255,.12); }
+  .nicole-hero .nh-clock{ font-size:38px; line-height:1; }
+  .nicole-hero .nh-date{ color:rgba(255,255,255,.6); font-size:14px; margin-top:8px; }
+  @media(max-width:760px){
+    .nicole-hero{ grid-template-columns:1fr; padding:20px; border-radius:18px; margin-top:0; }
+    .nicole-hero .nh-greet{ font-size:26px; }
+    .nicole-hero .nh-right{ border-left:none; padding-left:0; text-align:left; margin-top:14px; display:flex; align-items:baseline; gap:12px; }
+    .nicole-hero .nh-clock{ font-size:28px; }
+  }
+</style>
+</head>
+<body>
+<div class="m-topbar" id="mTopbar">
+  <span class="m-logo"><img src="images/logo.png" alt="S" onerror="this.parentNode.textContent='S'"></span>
+  <button class="m-pagepick" onclick="toggleSidebar()">
+    <span class="m-pp-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span>
+    <span class="m-pp-text"><span class="m-pp-eyebrow">Current Page</span><span class="m-pp-name" id="mCurrentPage">Today's Booking</span></span>
+    <svg class="m-pp-caret" viewBox="0 0 24 24"><path d="m6 9 6 6 6-6"/></svg>
+  </button>
+  <button class="m-add" onclick="openAdd()" aria-label="Add booking">+</button>
+</div>
+<div class="sidebar-backdrop" id="sidebarBackdrop" onclick="closeSidebar()"></div>
+<script>
+  function toggleSidebar(){
+    var sb=document.querySelector('.sidebar');
+    var bd=document.getElementById('sidebarBackdrop');
+    var open=sb.classList.toggle('open');
+    if(bd) bd.classList.toggle('show', open);
+    document.body.classList.toggle('nav-open', open);
+    if(!open){ var s=document.getElementById('mNavSearch'); if(s){ s.value=''; filterNav(''); } }
+  }
+  function closeSidebar(){
+    var sb=document.querySelector('.sidebar'); if(sb) sb.classList.remove('open');
+    var bd=document.getElementById('sidebarBackdrop'); if(bd) bd.classList.remove('show');
+    document.body.classList.remove('nav-open');
+  }
+  function filterNav(q){
+    q=(q||'').toLowerCase().trim();
+    document.querySelectorAll('.sidebar .nav-item').forEach(function(it){
+      it.style.display = (!q || it.textContent.toLowerCase().indexOf(q)!==-1) ? '' : 'none';
+    });
+    document.querySelectorAll('.sidebar .nav-group').forEach(function(g){
+      var sib=g.nextElementSibling, any=false;
+      while(sib && !(sib.classList && sib.classList.contains('nav-group'))){
+        if(sib.classList && sib.classList.contains('nav-item') && sib.style.display!=='none'){ any=true; break; }
+        sib=sib.nextElementSibling;
+      }
+      g.style.display = (!q || any) ? '' : 'none';
+    });
+  }
+  document.addEventListener('click', function(e){
+    if(window.innerWidth<=760 && e.target.closest && e.target.closest('.sidebar .nav-item')) closeSidebar();
+  });
+</script>
+<!-- sidebar navigation (mirrors dashboard.html) -->
+<div class="sidebar perms-pending">
+  <div class="brand">
+    <img class="hv-logo" src="images/logo.png" alt="Staycation Haven PH" onerror="this.outerHTML='&lt;span class=\'hv-logo\'&gt;S&lt;/span&gt;'">
+    <span class="hv-brandtext">Staycation<small>HAVEN PH</small></span>
+  </div>
+  <input type="text" class="m-navsearch" id="mNavSearch" placeholder="Jump to a page…" oninput="filterNav(this.value)" autocomplete="off">
+
+  <div class="nav-group">Board</div>
+  <div class="nav-item" data-page="board" onclick="goPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
+
+  <div class="nav-group">Main</div>
+  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+  <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
+  <div class="nav-item" data-page="guestform" onclick="goPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span> Guest Form</div>
+
+  <div class="nav-group">Front Desk</div>
+  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
+</div>
+
+<div class="main">
+  <!-- full-width breadcrumb top bar -->
+  <div class="appbar">
+    <div class="crumb"><a onclick="window.location.href='/dashboard.html'">Dashboard</a> / <b>Today's Booking</b></div>
+    <div class="spacer"></div>
+    <span class="who" id="currentUserLabel"></span>
+    <button class="btn" id="addBookingBtn" onclick="openAdd()">+ Add booking</button>
+    <div class="user-pill">
+      <button class="btn secondary" onclick="logout()">Logout</button>
+      <div class="avatar" id="hvAvatar">A</div>
+    </div>
+  </div>
+
+<div class="wrap">
+  <!-- premium greeting hero (live clock) -->
+  <div class="nicole-hero">
+    <div class="nh-left">
+      <div class="nh-eyebrow" id="nhDayName"></div>
+      <h1 class="nh-greet" id="nhGreeting">Welcome, Nicole!</h1>
+      <p class="nh-sub" id="nhSub"></p>
+    </div>
+    <div class="nh-right">
+      <div class="nh-clock" id="nhClock">—</div>
+      <div class="nh-date" id="nhDate"></div>
+    </div>
+  </div>
+  <div class="topbar">
+    <div class="title">
+      <h1>Today's Booking</h1>
+      <p id="todayDateLabel"></p>
+    </div>
+    <div class="head-tools">
+      <div class="seg">
+        <button class="view-tab" data-view="yesterday" onclick="setView('yesterday')">Yesterday</button>
+        <button class="view-tab active" data-view="today" onclick="setView('today')">Today</button>
+        <button class="view-tab" data-view="tomorrow" onclick="setView('tomorrow')">Tomorrow</button>
+        <button class="view-tab" data-view="week" onclick="setView('week')">This week</button>
+      </div>
+      <div id="tbRangeWrap" style="display:none; position:relative;" title="Admin only — pick any date range">
+        <button class="btn secondary" onclick="toggleRangePop(event)"><svg viewBox="0 0 24 24" style="width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; vertical-align:-2px; margin-right:6px;"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbRangeBtnLabel">Custom range</span></button>
+        <div id="tbRangePop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
+          <div class="dp-head"><button type="button" onclick="tbPickerNav(-1)">‹</button><span id="tbDpTitle"></span><button type="button" onclick="tbPickerNav(1)">›</button></div>
+          <div class="dp-grid" id="tbDpGrid"></div>
+          <div class="dp-hint" id="tbDpHint"></div>
+          <div class="dp-foot"><span onclick="tbDpClear()">Clear</span><span onclick="tbDpToday()">Today</span></div>
+        </div>
+        <style>
+          #tbRangePop.tb-dp{ position:absolute; right:0; top:50px; width:300px; background:#fff; border:1px solid #f0f0f0; border-radius:20px; box-shadow:0 12px 35px rgba(0,0,0,.16); padding:18px; z-index:60; text-align:left; }
+          #tbRangePop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+          #tbRangePop .dp-head span{ font-size:15px; font-weight:bold; color:#333; }
+          #tbRangePop .dp-head button{ width:32px; height:32px; border:none; background:#f6f6f6; border-radius:50%; cursor:pointer; font-size:16px; color:#555; }
+          #tbRangePop .dp-head button:hover{ background:#f0f0f0; color:#111; }
+          #tbRangePop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); column-gap:0; row-gap:6px; }
+          #tbRangePop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#bbb; padding:4px 0; }
+          #tbRangePop .dp-day{ position:relative; height:40px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#333; cursor:pointer; }
+          #tbRangePop .dp-day .n{ width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; position:relative; z-index:1; transition:background .12s ease; }
+          #tbRangePop .dp-day.empty{ cursor:default; }
+          #tbRangePop .dp-day.today .n{ font-weight:bold; }
+          #tbRangePop .dp-day:not(.sel):not(.empty):hover .n{ background:#efefef; }
+          #tbRangePop .dp-day.in-range{ background:#f1f1f1; }
+          #tbRangePop .dp-day.range-start{ background:linear-gradient(to right,transparent 50%,#f1f1f1 50%); }
+          #tbRangePop .dp-day.range-end{ background:linear-gradient(to left,transparent 50%,#f1f1f1 50%); }
+          #tbRangePop .dp-day.sel .n{ background:var(--hv-terra,#b9744a); color:#fff; font-weight:bold; }
+          #tbRangePop .dp-grid > *:nth-child(7n+1){ border-top-left-radius:20px; border-bottom-left-radius:20px; }
+          #tbRangePop .dp-grid > *:nth-child(7n){ border-top-right-radius:20px; border-bottom-right-radius:20px; }
+          #tbRangePop .dp-hint{ font-size:11px; color:#999; text-align:center; margin-top:12px; line-height:1.4; }
+          #tbRangePop .dp-foot{ display:flex; justify-content:space-between; margin-top:10px; padding-top:12px; border-top:1px solid #f3f3f3; }
+          #tbRangePop .dp-foot span{ font-size:13px; font-weight:bold; color:#333; cursor:pointer; }
+          #tbRangePop .dp-foot span:hover{ text-decoration:underline; }
+        </style>
+      </div>
+      <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
+    </div>
+  </div>
+
+  <style>
+    /* ---- Arriving / Availability tabs, inside the panel head ---- */
+    .ap-head{ justify-content:flex-start; gap:26px; }
+    .ap-tab{ border:none; background:none; padding:0 0 8px; margin:0; font-family:inherit; cursor:pointer; display:inline-flex; align-items:center; gap:9px; font-size:17px; font-weight:800; color:var(--hv-muted); border-bottom:2px solid transparent; line-height:1.2; }
+    .ap-tab .sec-ico{ display:inline-flex; align-items:center; }
+    .ap-tab .sec-ico svg{ width:18px; height:18px; stroke:currentColor; fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
+    .ap-tab .muted{ font-weight:400; }
+    .ap-tab:hover{ color:var(--hv-ink); }
+    .ap-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+    .ap-tab.active .sec-ico svg{ stroke:var(--hv-terra); }
+
+    #tbAvailBody .avail-bar{ display:flex; align-items:center; gap:10px; margin:2px 0 16px; flex-wrap:wrap; }
+    #tbAvailBody .avail-lbl{ font-size:13px; color:var(--hv-muted); }
+    #tbAvailBody .avail-hint{ font-size:13px; margin-left:6px; }
+    .tb-dp-wrap{ position:relative; }
+    .date-pill2{ display:inline-flex; align-items:center; gap:8px; padding:9px 14px; border:1px solid var(--hv-line); background:#fff; border-radius:10px; font-family:inherit; font-size:14px; font-weight:600; color:var(--hv-ink); cursor:pointer; }
+    .date-pill2:hover{ border-color:var(--hv-terra); color:var(--hv-terra); }
+    .date-pill2 svg{ width:15px; height:15px; fill:none; stroke:currentColor; stroke-width:2; }
+
+    #tbAvailDpPop.tb-dp{ position:absolute; left:0; top:50px; width:300px; background:#fff; border:1px solid #f0f0f0; border-radius:20px; box-shadow:0 12px 35px rgba(0,0,0,.16); padding:18px; z-index:60; text-align:left; }
+    #tbAvailDpPop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:14px; }
+    #tbAvailDpPop .dp-head span{ font-size:15px; font-weight:bold; color:#333; }
+    #tbAvailDpPop .dp-head button{ width:32px; height:32px; border:none; background:#f6f6f6; border-radius:50%; cursor:pointer; font-size:16px; color:#555; }
+    #tbAvailDpPop .dp-head button:hover{ background:#f0f0f0; color:#111; }
+    #tbAvailDpPop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); column-gap:0; row-gap:6px; }
+    #tbAvailDpPop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#bbb; padding:4px 0; }
+    #tbAvailDpPop .dp-day{ position:relative; height:40px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#333; cursor:pointer; }
+    #tbAvailDpPop .dp-day .n{ width:34px; height:34px; display:flex; align-items:center; justify-content:center; border-radius:50%; position:relative; z-index:1; transition:background .12s ease; }
+    #tbAvailDpPop .dp-day.empty{ cursor:default; }
+    #tbAvailDpPop .dp-day.today .n{ font-weight:bold; }
+    #tbAvailDpPop .dp-day:not(.sel):not(.empty):hover .n{ background:#efefef; }
+    #tbAvailDpPop .dp-day.sel .n{ background:var(--hv-terra,#b9744a); color:#fff; font-weight:bold; }
+    #tbAvailDpPop .dp-foot{ display:flex; justify-content:flex-end; margin-top:10px; padding-top:12px; border-top:1px solid #f3f3f3; }
+    #tbAvailDpPop .dp-foot span{ font-size:13px; font-weight:bold; color:#333; cursor:pointer; }
+    #tbAvailDpPop .dp-foot span:hover{ text-decoration:underline; }
+
+    #tbAvailBody .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
+    #tbAvailBody .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
+    #tbAvailBody .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
+    #tbAvailBody .av-table tbody tr:last-child td{ border-bottom:none; }
+    #tbAvailBody .av-table tbody tr:hover{ background:#faf7f2; }
+    #tbAvailBody .av-hcell{ display:flex; align-items:center; gap:9px; font-weight:700; color:var(--hv-ink); }
+    #tbAvailBody .av-hcell .dot{ width:10px; height:10px; border-radius:50%; }
+    #tbAvailBody .av-open{ color:#2e7d4f; font-weight:700; }
+    #tbAvailBody .av-bad{ color:#c0283d; font-weight:700; }
+  </style>
+
+  <div class="cards" id="todayCards"></div>
+
+  <div class="panel">
+    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span><span id="mopHeading">Collected today by payment method</span></h2></div>
+    <div class="mop-grid" id="mopGrid"></div>
+  </div>
+
+  <div class="panel" id="arrivePanel">
+    <div class="panel-head ap-head">
+      <button class="ap-tab active" type="button" data-at="arriving" onclick="apTab('arriving')"><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg></span><span id="arriveHeading">Arriving today</span> <span class="muted" id="todayArriveCount"></span></button>
+      <button class="ap-tab" type="button" data-at="availability" onclick="apTab('availability')"><span class="sec-ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span>Availability</button>
+    </div>
+    <div id="apArrivingBody" class="scroll">
+      <table>
+        <thead><tr>
+          <th>Haven</th><th>Guests</th><th>Check-in</th><th>Check-out</th>
+          <th>Stay</th><th>Add-ons</th><th>To collect</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="todayArriveBody"></tbody>
+      </table>
+    </div>
+    <div id="tbAvailBody" style="display:none;">
+      <div class="avail-bar">
+        <label class="avail-lbl">Date</label>
+        <div class="tb-dp-wrap">
+          <button type="button" class="date-pill2" onclick="tbAvailOpenPicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="tbAvailDateLabel"></span></button>
+          <div id="tbAvailDpPop" class="tb-dp" style="display:none;" onclick="event.stopPropagation()">
+            <div class="dp-head"><button type="button" onclick="tbAvailPickerNav(-1)">‹</button><span id="tbAvailDpTitle"></span><button type="button" onclick="tbAvailPickerNav(1)">›</button></div>
+            <div class="dp-grid" id="tbAvailDpGrid"></div>
+            <div class="dp-foot"><span onclick="tbAvailToday()">Today</span></div>
+          </div>
+        </div>
+        <button class="btn secondary" onclick="tbAvailToday()">Today</button>
+        <span class="muted avail-hint">Earliest a new guest can check in each haven, and their next booking.</span>
+      </div>
+      <div id="tbAvailList"></div>
+    </div>
+  </div>
+
+  <div class="panel">
+    <div class="panel-head"><h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span><span id="stayHeading">In-house &amp; departing today</span> <span class="muted" id="todayStayCount"></span></h2></div>
+    <div class="scroll">
+      <table>
+        <thead><tr>
+          <th>Haven</th><th>Guests</th><th>Check-in</th><th>Check-out</th>
+          <th>Stay</th><th>Add-ons</th><th>Balance</th><th>Status</th><th></th>
+        </tr></thead>
+        <tbody id="todayStayBody"></tbody>
+      </table>
+    </div>
+  </div>
+
+  <!-- activity log — visible to admins only -->
+  <div class="panel" id="logPanel" style="display:none;">
+    <div class="panel-head">
+      <h2><span class="sec-ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span>Activity log <span class="muted" id="logCount"></span></h2>
+      <button class="btn secondary" onclick="renderTodayLog()">↻ Refresh</button>
+    </div>
+    <div class="scroll" style="max-height:340px; overflow-y:auto;">
+      <div id="todayLogList" class="log-list"></div>
+    </div>
+  </div>
+</div>
+</div><!-- /main -->
+
+<!-- add booking popup (saves to the same data the dashboard Calendar/Bookings uses) -->
+<div class="overlay" id="addOverlay">
+  <div class="modal modal-wide">
+    <h3>Add Booking</h3>
+    <div class="bk-grid">
+      <div class="bk-field full">
+        <label>Haven</label>
+        <select id="a_haven" onchange="aRecalc()"></select>
+      </div>
+      <div class="bk-field full">
+        <label>Guests <span class="muted">(max 5 pax — up to 4 adults &amp; 2 kids aged 0–13)</span></label>
+        <div id="aGuestList"></div>
+        <button type="button" class="btn add-guest" onclick="aAddGuest()">+ Add guest</button>
+        <div class="breakdown">1st guest must be 18+. 2nd guest may be a minor only if a family member (same last name). Base rate covers 2 pax; extra pax aged 5+ is ₱300/head.</div>
+      </div>
+      <div class="bk-field full">
+        <label>Contact number</label>
+        <input type="text" id="a_contact" placeholder="09xx xxx xxxx">
+      </div>
+      <div class="bk-field">
+        <label>Check-in</label>
+        <input type="date" id="a_checkin" onchange="aOnCheckinChange()">
+      </div>
+      <div class="bk-field">
+        <label>Check-out <span class="muted">(auto)</span></label>
+        <input type="date" id="a_checkout" readonly>
+      </div>
+      <div class="bk-field">
+        <label>Time of stay</label>
+        <select id="a_stay" onchange="aRecompute()"></select>
+      </div>
+      <div class="bk-field">
+        <label>Extend hr <span class="muted">(₱150/hr)</span></label>
+        <input type="number" id="a_extend" value="0" min="0" oninput="aRecompute()">
+      </div>
+      <div class="bk-field">
+        <label>Check-in time</label>
+        <select id="a_checkinTime" onchange="aTimeSelChange()"></select>
+        <input type="time" id="a_checkinTimeCustom" style="display:none; margin-top:6px;" onchange="aRecompute()">
+      </div>
+      <div class="bk-field">
+        <label>Check-out time <span class="muted">(auto)</span></label>
+        <input type="text" id="a_checkoutTime" readonly>
+      </div>
+      <div class="bk-field">
+        <label>Swimpass qty</label>
+        <input type="number" id="a_swimpass" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field">
+        <label>Towels qty <span class="muted">(₱50 each)</span></label>
+        <input type="number" id="a_towels" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field full">
+        <label class="check-label"><input type="checkbox" id="a_holiday" onchange="aRecalc()"> Holiday rate <span class="muted">(swimpass ₱300/pax instead of ₱150)</span></label>
+      </div>
+      <div class="bk-field full">
+        <label>Payment method</label>
+        <select id="a_method">
+          <option>GCash</option><option>Maya</option><option>BDO</option>
+          <option>Cash</option><option>Maribank</option><option>Other bank</option>
+        </select>
+      </div>
+      <div class="bk-field">
+        <label>Security deposit (₱)</label>
+        <input type="number" id="a_deposit" value="1000" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field">
+        <label>Downpayment (₱)</label>
+        <input type="number" id="a_down" value="0" min="0" oninput="aRecalc()">
+      </div>
+      <div class="bk-field full">
+        <label>Total amount payable (₱) <span class="muted">— auto-calculated</span></label>
+        <input type="number" id="a_total" readonly>
+        <div class="breakdown" id="a_breakdown"></div>
+      </div>
+      <div class="bk-field full">
+        <label>Balance upon check-in (₱)</label>
+        <input type="text" id="a_balance" readonly>
+      </div>
+      <div class="bk-field full">
+        <label>Notes</label>
+        <textarea id="a_notes" rows="2" placeholder="Special requests, late checkout, etc."></textarea>
+      </div>
+    </div>
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeAdd()">Cancel</button>
+      <button class="btn" onclick="saveNewBooking()">Save Booking</button>
+    </div>
+  </div>
+</div>
+
+<!-- payment / collection popup -->
+<div class="overlay" id="payOverlay">
+  <div class="modal">
+    <span class="modal-x" onclick="closePay()" title="Close">✕</span>
+    <div class="modal-eyebrow" id="payEyebrow"></div>
+    <h3 id="payTitle">Record Payment</h3>
+    <div class="pay-info" id="payInfo"></div>
+
+    <div id="payList"></div>
+
+    <label for="payFor">Payment for</label>
+    <select id="payFor">
+      <option value="Balance">Balance</option>
+      <option value="Add Ons">Add Ons</option>
+      <option value="Downpayment" disabled>Downpayment (edit via the downpayment row)</option>
+    </select>
+
+    <label for="payAmount">Amount collected <span class="lbl-muted">(₱)</span></label>
+    <input type="number" id="payAmount" min="0" placeholder="0">
+
+    <label for="payDate">Date collected</label>
+    <input type="hidden" id="payDate">
+    <div class="paydp-wrap">
+      <button type="button" class="paydp-pill" onclick="payDpToggle(event)">
+        <svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>
+        <span id="payDateLabel">Today</span>
+      </button>
+      <div id="payDpPop" class="paydp-pop" onclick="event.stopPropagation()">
+        <div class="dp-head"><button type="button" onclick="payDpNav(-1)">‹</button><span id="payDpTitle"></span><button type="button" onclick="payDpNav(1)">›</button></div>
+        <div class="dp-grid" id="payDpGrid"></div>
+        <div class="dp-foot"><span onclick="payDpPick(iso(today()))">Today</span></div>
+      </div>
+    </div>
+    <style>
+      .paydp-wrap{ position:relative; }
+      .paydp-pill{ width:100%; display:flex; align-items:center; gap:9px; padding:12px 14px; border:1px solid #ece4d8; border-radius:10px; background:#faf6ef; font:inherit; font-size:14px; color:#33291f; cursor:pointer; text-align:left; }
+      .paydp-pill:hover{ border-color:#d9b48f; }
+      .paydp-pill svg{ width:16px; height:16px; flex:none; fill:none; stroke:#bd6e3f; stroke-width:2; }
+      #payDpPop.paydp-pop{ display:none; margin-top:8px; background:#fff; border:1px solid #f0e6d8; border-radius:16px; box-shadow:0 8px 24px rgba(80,60,30,.14); padding:16px; }
+      #payDpPop .dp-head{ display:flex; justify-content:space-between; align-items:center; margin-bottom:12px; }
+      #payDpPop .dp-head span{ font-size:14px; font-weight:bold; color:#33291f; }
+      #payDpPop .dp-head button{ width:30px; height:30px; border:none; background:#f6efe6; border-radius:50%; cursor:pointer; font-size:16px; color:#6f5b46; }
+      #payDpPop .dp-head button:hover{ background:#efe2cf; color:#111; }
+      #payDpPop .dp-grid{ display:grid; grid-template-columns:repeat(7,minmax(0,1fr)); row-gap:5px; }
+      #payDpPop .dp-wd{ text-align:center; font-size:11px; font-weight:bold; color:#c3b39d; padding:4px 0; }
+      #payDpPop .dp-day{ height:36px; display:flex; align-items:center; justify-content:center; font-size:13px; color:#33291f; cursor:pointer; }
+      #payDpPop .dp-day .n{ width:32px; height:32px; display:flex; align-items:center; justify-content:center; border-radius:50%; transition:background .12s; }
+      #payDpPop .dp-day.empty{ cursor:default; }
+      #payDpPop .dp-day.today .n{ font-weight:bold; color:#bd6e3f; }
+      #payDpPop .dp-day:not(.sel):not(.empty):hover .n{ background:#f3ece1; }
+      #payDpPop .dp-day.sel .n{ background:var(--hv-terra,#bd6e3f); color:#fff; font-weight:bold; }
+      #payDpPop .dp-foot{ display:flex; justify-content:flex-end; margin-top:10px; padding-top:10px; border-top:1px solid #f3ece1; }
+      #payDpPop .dp-foot span{ font-size:13px; font-weight:bold; color:#bd6e3f; cursor:pointer; }
+      #payDpPop .dp-foot span:hover{ text-decoration:underline; }
+    </style>
+
+    <label for="payMop">MOP <span class="lbl-muted">(Mode of Payment)</span></label>
+    <select id="payMop">
+      <option value="Cash">Cash</option>
+      <option value="GCash">GCash</option>
+      <option value="BDO">BDO</option>
+      <option value="Maya">Maya</option>
+      <option value="Maribank">Maribank</option>
+      <option value="Others">Others</option>
+    </select>
+
+    <label>Proof of Payment <span class="lbl-muted">(photo)</span></label>
+    <label class="pay-upload">
+      <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+      <span class="pu-body"><b>Choose file</b><small class="pu-name" id="payFileName">No file chosen</small></span>
+      <input type="file" id="payFile" accept="image/*" onchange="onProofChange(this)">
+    </label>
+    <img id="payPreview" class="pay-preview" alt="proof" onclick="openProofImg(this.src)">
+
+    <div class="modal-actions">
+      <button class="btn secondary" id="paySaveAddBtn" onclick="savePay(true)" style="display:none; margin-right:auto;">+ Add another payment</button>
+      <button class="btn secondary" id="payAddBtn" onclick="addFollowUpPayment()" style="display:none; margin-right:auto;">+ Add payment</button>
+      <button class="btn secondary" id="payDelBtn" onclick="deletePaymentEntry()" style="display:none; color:#c0283d; border-color:#f3c2cb;">Delete</button>
+      <button class="btn secondary" onclick="closePay()">Cancel</button>
+      <button class="btn" id="paySaveBtn" onclick="savePay()">Save Payment</button>
+    </div>
+  </div>
+</div>
+
+<!-- late add-ons (pool pass / towels) added to an existing booking's bill -->
+<div class="overlay" id="addonOverlay">
+  <div class="modal">
+    <h3>➕ Add-ons to Bill</h3>
+    <div class="pay-info" id="addonInfo"></div>
+
+    <label for="addonPool">Add pool passes</label>
+    <input type="number" id="addonPool" min="0" value="0" oninput="addonRecalc()">
+
+    <label for="addonTowels">Add towels</label>
+    <input type="number" id="addonTowels" min="0" value="0" oninput="addonRecalc()">
+
+    <label for="addonHours">Add hours <span class="muted">(₱150/hr)</span></label>
+    <input type="number" id="addonHours" min="0" value="0" oninput="addonRecalc()">
+
+    <label class="check-label" style="margin-top:12px;"><input type="checkbox" id="addonHoliday" onchange="addonRecalc()"> Holiday pool rate (₱300/pass)</label>
+
+    <div class="pay-info" id="addonTotalInfo" style="margin-top:12px;"></div>
+
+    <div class="modal-actions">
+      <button class="btn secondary" onclick="closeAddon()">Cancel</button>
+      <button class="btn" onclick="saveAddon()">Add to Bill</button>
+    </div>
+  </div>
+</div>
+
+<!-- full-size proof image viewer -->
+<div class="img-lightbox" id="imgLightbox" onclick="this.classList.remove('show')">
+  <img id="imgLightboxImg" alt="proof of payment">
+</div>
+
+<script>
+  // shares the dashboard's data — same localStorage key
+  const KEY = "shph_bookings_v3";
+  // Persist bookings WITH an edit-time stamp on whatever changed, so the merge layers keep
+  // the newest version and a refresh / stale tab can't wipe a fresh payment. MUST match the
+  // main dashboard's save() — without this, payments entered here are lost on reload.
+  function _bkCanon(v){
+    if(Array.isArray(v)) return "[" + v.map(_bkCanon).join(",") + "]";
+    if(v && typeof v === "object") return "{" + Object.keys(v).filter(k => k !== "updatedAt").sort()
+      .map(k => JSON.stringify(k) + ":" + _bkCanon(v[k])).join(",") + "}";
+    return JSON.stringify(v);
+  }
+  let _bkSig = null;
+  // baseline for change-stamping = the loaded list, so save() only stamps records the user
+  // actually edits (never mass-stamps stale data, which could win the merge and wipe edits).
+  function _seedBkSig(arr){ _bkSig = {}; (arr || []).forEach(b => { if(b && b.id != null) _bkSig[String(b.id)] = _bkCanon(b); }); }
+  function saveBookings(data){
+    try{
+      if(_bkSig === null) _seedBkSig(data);
+      const now = new Date().toISOString();
+      (data || []).forEach(b => { if(!b || b.id == null) return; const sig = _bkCanon(b); if(_bkSig[String(b.id)] !== sig) b.updatedAt = now; _bkSig[String(b.id)] = _bkCanon(b); });
+    }catch(e){}
+    localStorage.setItem(KEY, JSON.stringify(data));
+  }
+  const HAVEN_TIMES = {
+    "Haven 1":{in:"12:00 NN"}, "Haven 2":{in:"12:00 NN"}, "Haven 3":{in:"12:00 NN"},
+    "Haven 4":{in:"3:00 PM"}, "Haven 5":{in:"3:00 PM"}, "Haven 7":{in:"3:00 PM"},
+    "Haven 8":{in:"6:00 PM"}, "Casa Bienca":{in:"6:00 PM"}
+  };
+
+  /* ---------- date helpers ---------- */
+  function today(){ const d = new Date(); d.setHours(0,0,0,0); return d; }
+  function addDays(date, n){ const d = new Date(date); d.setDate(d.getDate()+n); return d; }
+  function iso(date){
+    const y = date.getFullYear();
+    const m = String(date.getMonth()+1).padStart(2,"0");
+    const d = String(date.getDate()).padStart(2,"0");
+    return `${y}-${m}-${d}`;
+  }
+  function fmt(dateStr){
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-PH", {month:"short", day:"numeric"});
+  }
+  function peso(n){ return "₱" + Number(n).toLocaleString("en-PH"); }
+
+  /* ---------- haven colour scheme (matches the calendar legend) ---------- */
+  const HAVEN_COLORS = {
+    "Haven 1":    { am:"#d9bdf5", pm:"#b98ee6" },
+    "Haven 2":    { am:"#fde68a", pm:"#ecca4e" },
+    "Haven 3":    { am:"#bcbcbc", pm:"#8c8c8c" },
+    "Haven 4":    { am:"#bcf3cf", pm:"#84dca0" },
+    "Haven 5":    { am:"#bcd0fb", pm:"#7ea6f4" },
+    "Haven 7":    { am:"#aef0f7", pm:"#66d8e8" },
+    "Haven 8":    { am:"#fcd0e7", pm:"#f5a3d0" },
+    "CasaBienca": { am:"#cdff8f", pm:"#a8ec5c" },
+    "CasaSiesta": { am:"#ffd2a8", pm:"#f5ab68" }
+  };
+  function havenPastel(name){
+    let h = 0; for(let i=0;i<name.length;i++) h = (h*31 + name.charCodeAt(i)) % 360;
+    return { am:`hsl(${h} 70% 80%)`, pm:`hsl(${h} 60% 66%)` };
+  }
+  function havenColors(name){ return HAVEN_COLORS[name] || (HAVEN_COLORS[name] = havenPastel(name)); }
+  // a darker, text-legible shade of the haven's colour
+  function havenInk(name){
+    const c = havenColors(name);
+    // CSS color-mix darkens the pastel for readable text while staying on-scheme
+    return `color-mix(in srgb, ${c.pm} 78%, #2f2a25)`;
+  }
+
+  /* ---------- check-in / check-out times ---------- */
+  function parseTimeMin(str){
+    const m = String(str).match(/^(\d{1,2}):(\d{2})\s*(AM|PM|NN|MN)$/i);
+    if(!m) return null;
+    let h = Number(m[1]); const min = Number(m[2]); const suf = m[3].toUpperCase();
+    if(suf === "NN") h = 12; else if(suf === "MN") h = 0; else if(suf === "PM") h = (h % 12) + 12; else h = h % 12;
+    return h * 60 + min;
+  }
+  function minToTime(min){
+    min = ((min % 1440) + 1440) % 1440;
+    const h = Math.floor(min / 60), mm = String(min % 60).padStart(2, "0");
+    if(h === 0) return `12:${mm} MN`;
+    if(h === 12) return `12:${mm} NN`;
+    return `${h > 12 ? h - 12 : h}:${mm} ${h < 12 ? "AM" : "PM"}`;
+  }
+  function bookingCheckinMin(b){
+    if(b.checkinTime){ const m = parseTimeMin(b.checkinTime); if(m != null) return m === 0 ? 1440 : m; }
+    const h = Number(b.stayHours) || 21;
+    if(h === 6) return parseTimeMin(b.slot === "evening" ? "7:00 PM" : "8:00 AM");
+    if(h === 21){ const t = HAVEN_TIMES[b.haven]; return t ? parseTimeMin(t.in) : parseTimeMin("12:00 NN"); }
+    return parseTimeMin("8:00 AM");
+  }
+  function checkinTimeStr(b){ return minToTime(bookingCheckinMin(b)); }
+  function checkoutTimeStr(b){
+    return minToTime(bookingCheckinMin(b) + ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60);
+  }
+  function endExcl(b){
+    return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+  }
+
+  /* ---------- booking helpers ---------- */
+  // total collected AFTER booking (via the Paid button) — kept separate from the downpayment
+  function collectedSum(b){ return (b.payments || []).reduce((s,p) => s + (Number(p.amount) || 0), 0); }
+  // everything the customer has paid so far = original downpayment + later collections
+  function paidOf(b){ return Number(b.downpayment || 0) + collectedSum(b); }
+  function balanceOf(b){ return Math.max(0, Number(b.total || 0) - paidOf(b)); }
+  function statusOf(b){
+    const paid = paidOf(b);
+    if(paid >= b.total && b.total > 0) return "paid";
+    if(paid > 0) return "partial";
+    return "unpaid";
+  }
+  function guestSummary(b){ return (b.guests || []).map(g => `${g.name} (${g.age})`).join("<br>"); }
+  function addonsCell(b){
+    const ico = s => `<svg class="addon-ico" viewBox="0 0 24 24">${s}</svg>`;
+    const POOL  = '<path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/>';
+    const TOWEL = '<rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/>';
+    const CLOCK = '<circle cx="12" cy="12" r="9"/><path d="M12 7.5v5l3 2"/>';
+    const bits = [];
+    if(b.swimpass > 0) bits.push(`<span class="addon">${ico(POOL)}${b.swimpass}</span>`);
+    if(b.towels   > 0) bits.push(`<span class="addon">${ico(TOWEL)}${b.towels}</span>`);
+    if(b.extend   > 0) bits.push(`<span class="addon">${ico(CLOCK)}+${b.extend}h</span>`);
+    return bits.length ? bits.join(" ") : '<span class="muted">—</span>';
+  }
+  function todayInfo(b, t){
+    const dayUse = !(b.checkout > b.checkin);
+    const arrives  = b.checkin === t;
+    const departs  = dayUse ? b.checkin === t : b.checkout === t;
+    const staying  = b.checkin <= t && t < endExcl(b);
+    return { arrives, departs, staying, relevant: arrives || departs || staying };
+  }
+  function todayRow(b, amountCol, statusHtml){
+    const st = statusOf(b);
+    const hasPayment = b.payments && b.payments.length;
+    const updateLink = ` <span class="edit-pay" onclick="openPay(${b.id}, true)">Update payment</span>`;
+    // action follows the real status: fully paid → ✓ Paid; otherwise → Paid button to collect
+    const payCell = (st === "paid")
+      ? `<span class="paid-tag">✓ Paid</span>${updateLink}`
+      : `<button class="btn-paid" onclick="openPay(${b.id})">Paid</button>${hasPayment ? updateLink : ""}`;
+    const over = paidOf(b) - Number(b.total || 0);   // excess payment, if any
+    const amtCell = amountCol > 0
+        ? peso(amountCol)
+        : (over > 0 ? `<span style="color:#2e9e5b; font-weight:700;">+${peso(over)} over</span>` : '<span class="muted">—</span>');
+    const addonLink = ` <span class="edit-pay" onclick="openAddon(${b.id})">+ Add-ons</span>`;
+    return `<tr>
+        <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong><br><a class="bk-code" href="/dashboard.html?open=${encodeURIComponent(b.id)}" title="Open booking details in Calendar">#${tbBookingCode(b)}</a></td>
+        <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
+        <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
+        <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
+        <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
+        <td>${addonsCell(b)}</td>
+        <td>${amtCell}</td>
+        <td>${statusHtml || `<span class="status ${st}">${st}</span>`}</td>
+        <td>${payCell}${addonLink}</td>
+    </tr>`;
+  }
+
+  /* ---------- data ---------- */
+  function loadBookings(){
+    try { return (JSON.parse(localStorage.getItem(KEY)) || []).filter(b => b && !b.deleted); }   // soft-deleted bookings stay on the server, hidden here (matches the dashboard)
+    catch(e){ return []; }
+  }
+  let bookings = loadBookings();
+  _seedBkSig(bookings);   // baseline = the loaded state (prevents stale re-stamping)
+
+  /* ---------- render ---------- */
+  let currentView = "today"; // today | tomorrow | week | month | custom
+  let customStart = null, customEnd = null;   // admin date-range picker (iso "YYYY-MM-DD")
+
+  // [start, end) iso date range for the chosen view
+  function viewRange(){
+    const t0 = today();
+    if(currentView === "yesterday"){ const d = addDays(t0, -1); return { start: iso(d), end: iso(t0) }; }
+    if(currentView === "tomorrow"){ const d = addDays(t0, 1); return { start: iso(d), end: iso(addDays(d, 1)) }; }
+    if(currentView === "week"){ const s = addDays(t0, -t0.getDay()); return { start: iso(s), end: iso(addDays(s, 7)) }; }
+    if(currentView === "month"){ const s = new Date(t0.getFullYear(), t0.getMonth(), 1); const e = new Date(t0.getFullYear(), t0.getMonth() + 1, 1); return { start: iso(s), end: iso(e) }; }
+    if(currentView === "custom" && customStart && customEnd){ return { start: customStart, end: iso(addDays(new Date(customEnd + "T00:00:00"), 1)) }; }   // end inclusive
+    return { start: iso(t0), end: iso(addDays(t0, 1)) };
+  }
+  // ---- admin-only custom-range calendar picker (max 30 days) ----
+  const TB_MAX = 30;
+  const TB_MONTHS = ["January","February","March","April","May","June","July","August","September","October","November","December"];
+  let tbPickerMonth = null, tbPendingStart = null, tbHoverIso = null;
+  function tbDaysBetween(a, b){ return Math.round((Date.parse(b + "T00:00:00") - Date.parse(a + "T00:00:00")) / 86400000); }
+
+  function toggleRangePop(e){
+    if(e) e.stopPropagation();
+    const p = document.getElementById("tbRangePop");
+    if(!p) return;
+    if(p.style.display === "block"){ p.style.display = "none"; return; }
+    tbPendingStart = null; tbHoverIso = null;
+    const base = customStart ? new Date(customStart + "T00:00:00") : today();
+    tbPickerMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    tbRenderPicker();
+    p.style.display = "block";
+  }
+  document.addEventListener("click", function(){ const p = document.getElementById("tbRangePop"); if(p && p.style.display === "block") p.style.display = "none"; });
+
+  function tbPickerNav(dir){ tbPickerMonth = new Date(tbPickerMonth.getFullYear(), tbPickerMonth.getMonth() + dir, 1); tbRenderPicker(); }
+  function tbHighlightRange(){
+    if(tbPendingStart){
+      let end = (tbHoverIso && tbHoverIso >= tbPendingStart) ? tbHoverIso : tbPendingStart;
+      if(tbDaysBetween(tbPendingStart, end) > TB_MAX - 1) end = iso(addDays(new Date(tbPendingStart + "T00:00:00"), TB_MAX - 1));
+      return { start: tbPendingStart, end };
+    }
+    if(currentView === "custom" && customStart && customEnd) return { start: customStart, end: customEnd };
+    return { start: "", end: "" };
+  }
+  function tbRenderPicker(){
+    const y = tbPickerMonth.getFullYear(), m = tbPickerMonth.getMonth();
+    document.getElementById("tbDpTitle").textContent = TB_MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today());
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+      const cellIso = iso(new Date(y, m, d));
+      html += `<div class="dp-day${cellIso === todayIso ? " today" : ""}" data-iso="${cellIso}" onclick="tbPickDay('${cellIso}')" onmouseover="tbHoverDay('${cellIso}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("tbDpGrid").innerHTML = html;
+    tbUpdateHighlight();
+  }
+  function tbUpdateHighlight(){
+    const { start, end } = tbHighlightRange();
+    document.querySelectorAll("#tbDpGrid .dp-day").forEach(cell => {
+      cell.classList.remove("sel","range-start","range-end","in-range");
+      const ci = cell.dataset.iso; if(!ci) return;
+      if(start && ci === start && ci === end) cell.classList.add("sel");
+      else if(start && ci === start) cell.classList.add("sel","range-start");
+      else if(end && ci === end) cell.classList.add("sel","range-end");
+      else if(start && end && ci > start && ci < end) cell.classList.add("in-range");
+    });
+    document.getElementById("tbDpHint").textContent = tbPendingStart
+      ? "Now click an end date (max " + TB_MAX + " days), or the same day for a single date"
+      : "Click a date, then an end date for a range (max " + TB_MAX + " days)";
+  }
+  function tbPickDay(cellIso){
+    if(!tbPendingStart){ tbPendingStart = cellIso; tbHoverIso = cellIso; tbUpdateHighlight(); return; }
+    if(cellIso < tbPendingStart){ tbPendingStart = cellIso; tbUpdateHighlight(); return; }
+    let endIso = cellIso;
+    if(tbDaysBetween(tbPendingStart, endIso) > TB_MAX - 1) endIso = iso(addDays(new Date(tbPendingStart + "T00:00:00"), TB_MAX - 1));
+    tbApplyRange(tbPendingStart, endIso);
+  }
+  function tbHoverDay(cellIso){ if(!tbPendingStart) return; tbHoverIso = cellIso; tbUpdateHighlight(); }
+  function tbApplyRange(f, t){
+    customStart = f; customEnd = t; currentView = "custom";
+    tbPendingStart = null; tbHoverIso = null;
+    document.querySelectorAll(".view-tab").forEach(b => b.classList.remove("active"));
+    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = fmt(f) + (f === t ? "" : " – " + fmt(t));
+    const p = document.getElementById("tbRangePop"); if(p) p.style.display = "none";
+    try{ localStorage.setItem("shph_today_view", "custom"); localStorage.setItem("shph_today_custom", JSON.stringify({ f, t })); }catch(e){}
+    renderToday();
+  }
+  function tbDpToday(){ tbApplyRange(iso(today()), iso(today())); }
+  function tbDpClear(){ tbPendingStart = null; tbHoverIso = null; const p = document.getElementById("tbRangePop"); if(p) p.style.display = "none"; setView("today"); }
+  // classify a booking against a date range [start, end)
+  function rangeInfo(b, start, end){
+    const dayUse = !(b.checkout > b.checkin);
+    const arrives = b.checkin >= start && b.checkin < end;
+    const departDate = dayUse ? b.checkin : b.checkout;
+    const departs = departDate >= start && departDate < end;
+    const overlaps = b.checkin < end && endExcl(b) > start;
+    return { arrives, departs, staying: overlaps, relevant: arrives || departs || overlaps };
+  }
+
+  // activity log shown below the booking lists — ADMINS ONLY
+  function renderTodayLog(){
+    const panel = document.getElementById("logPanel");
+    if(!panel) return;
+    if(!IS_ADMIN){ panel.style.display = "none"; return; }   // hide for non-admins
+    panel.style.display = "";
+    let log = [];
+    try { log = JSON.parse(localStorage.getItem("shph_activity_log")) || []; } catch(e){}
+    const cnt = document.getElementById("logCount");
+    if(cnt) cnt.textContent = log.length ? "(" + log.length + ")" : "";
+    const el = document.getElementById("todayLogList");
+    if(!el) return;
+    if(!log.length){ el.innerHTML = '<div class="muted" style="padding:14px 4px;">No activity logged yet.</div>'; return; }
+    const esc = s => String(s == null ? "" : s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;");
+    el.innerHTML = log.slice().reverse().slice(0, 200).map(e =>
+      `<div class="log-row">
+         <span class="log-when">${new Date(e.at).toLocaleString("en-PH")}</span>
+         <span class="log-user">${esc(e.user || "—")}</span>
+         <span class="log-action">${esc(e.action || "")}</span>
+       </div>`).join("");
+  }
+
+  function setView(v){
+    currentView = v;
+    localStorage.setItem("shph_today_view", v);   // remember across refreshes
+    document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === v));
+    const lbl = document.getElementById("tbRangeBtnLabel"); if(lbl) lbl.textContent = "Custom range";   // reset the range pill
+    if(typeof apTab === "function") apTab("arriving");   // a new date view shows its arrivals, not a stale Availability panel for an unrelated date
+    renderToday();
+  }
+
+  /* ---------- Availability tab (mirrors the dashboard Calendar → Availability view) ---------- */
+  const EARLIEST_CHECKIN_MIN = 540;   // 9:00 AM — earliest a guest may check in
+  const CLEANING_GAP_MIN = 60;        // 1h turnaround/cleaning gap required between two stays
+
+  // occupied window [start, end) in ABSOLUTE minutes; a 21h overnight stay blocks until its check-out morning
+  function bookingInterval(b){
+    const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
+    const start = midnightMin + bookingCheckinMin(b);
+    if(Number(b.stayHours) === 21 && b.checkout && b.checkout > b.checkin){
+      const coMidnight = Math.round(new Date(b.checkout + "T00:00:00").getTime() / 60000);
+      const checkoutMin = (bookingCheckinMin(b) + (21 + (Number(b.extend) || 0)) * 60) % 1440;
+      return { start, end: coMidnight + checkoutMin };
+    }
+    const dur = ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60;
+    return { start, end: start + dur };
+  }
+
+  // same haven source the dashboard uses (admin-saved havens, in their set order) so the list matches everywhere
+  function availHavenNames(){
+    try{
+      const saved = localStorage.getItem("staycation_havens");
+      if(saved){
+        const names = JSON.parse(saved).filter(h => h && !h.deleted)
+          .sort((a, b) => (a.order != null ? a.order : 1e9) - (b.order != null ? b.order : 1e9))
+          .map(h => h.name).filter(Boolean);
+        if(names.length) return names;
+      }
+    }catch(e){}
+    return ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","CasaBienca","CasaSiesta"];
+  }
+
+  // Arriving ⇄ Availability tab switch (inside the arriving panel head)
+  function apTab(view){
+    document.querySelectorAll("#arrivePanel .ap-tab").forEach(t => t.classList.toggle("active", t.dataset.at === view));
+    const isAvail = (view === "availability");
+    const arr = document.getElementById("apArrivingBody"), av = document.getElementById("tbAvailBody");
+    if(arr) arr.style.display = isAvail ? "none" : "";
+    if(av) av.style.display = isAvail ? "" : "none";
+    if(isAvail) renderAvailability();
+  }
+
+  // availability date picker (single date; same mini-calendar look as the custom-range picker)
+  let tbAvailDate = null, tbAvailPickerMonth = null;
+  function tbAvailOpenPicker(e){
+    if(e && e.stopPropagation) e.stopPropagation();
+    const pop = document.getElementById("tbAvailDpPop"); if(!pop) return;
+    if(pop.style.display === "block"){ pop.style.display = "none"; return; }
+    const d = new Date((tbAvailDate || iso(today())) + "T00:00:00");
+    tbAvailPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1);
+    tbAvailRenderPicker();
+    pop.style.display = "block";
+  }
+  function tbAvailPickerNav(dir){
+    if(!tbAvailPickerMonth){ const d = new Date((tbAvailDate || iso(today())) + "T00:00:00"); tbAvailPickerMonth = new Date(d.getFullYear(), d.getMonth(), 1); }
+    tbAvailPickerMonth = new Date(tbAvailPickerMonth.getFullYear(), tbAvailPickerMonth.getMonth() + dir, 1);
+    tbAvailRenderPicker();
+  }
+  function tbAvailToday(){ tbAvailDate = iso(today()); const p = document.getElementById("tbAvailDpPop"); if(p) p.style.display = "none"; renderAvailability(); }
+  function tbAvailPickDay(di){ tbAvailDate = di; const p = document.getElementById("tbAvailDpPop"); if(p) p.style.display = "none"; renderAvailability(); }
+  function tbAvailRenderPicker(){
+    const ttl = document.getElementById("tbAvailDpTitle"); if(!ttl || !tbAvailPickerMonth) return;
+    const y = tbAvailPickerMonth.getFullYear(), m = tbAvailPickerMonth.getMonth();
+    ttl.textContent = TB_MONTHS[m] + " " + y;
+    const todayIso = iso(today()), sel = tbAvailDate || iso(today());
+    const startDay = new Date(y, m, 1).getDay(), dim = new Date(y, m + 1, 0).getDate();
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += '<div class="dp-wd">' + d + '</div>');
+    for(let i = 0; i < startDay; i++) html += '<div class="dp-day empty"></div>';
+    for(let d = 1; d <= dim; d++){
+      const di = iso(new Date(y, m, d));
+      html += '<div class="dp-day' + (di === todayIso ? " today" : "") + (di === sel ? " sel" : "") + '" onclick="tbAvailPickDay(\'' + di + '\')"><span class="n">' + d + '</span></div>';
+    }
+    document.getElementById("tbAvailDpGrid").innerHTML = html;
+  }
+  document.addEventListener("click", function(e){
+    const p = document.getElementById("tbAvailDpPop");
+    if(p && p.style.display === "block" && e.target && e.target.closest && !e.target.closest(".tb-dp-wrap")) p.style.display = "none";
+  });
+
+  // For the selected date, show each haven's earliest available check-in + its next booking.
+  function renderAvailability(){
+    bookings = loadBookings();   // reflect the latest saved bookings
+    if(!tbAvailDate) tbAvailDate = iso(today());
+    const D = tbAvailDate;
+    const lbl = document.getElementById("tbAvailDateLabel"); if(lbl) lbl.textContent = fmt(D);
+    const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
+    const dayEnd = dayAbs + 1440;
+    let floor = dayAbs + EARLIEST_CHECKIN_MIN;                                    // can't check in before 9 AM on the day
+    if(D === iso(today())) floor = Math.max(floor, Math.round(new Date().getTime() / 60000));   // for TODAY, no earlier than right now
+    const fmtAbs = function(absMin){
+      const dIso = iso(new Date(absMin * 60000));
+      const mi = absMin - Math.round(new Date(dIso + "T00:00:00").getTime() / 60000);
+      const t = minToTime(mi);
+      return dIso === D ? t : (fmt(dIso) + " · " + t);
+    };
+    const havenList = availHavenNames();
+    const rows = havenList.map(function(h){
+      const intervals = bookings.filter(function(b){ return b && !b.cancelled && b.haven === h && b.checkin; })
+        .map(function(b){ const iv = bookingInterval(b); return { ci: iv.start, freeAt: iv.end + CLEANING_GAP_MIN }; })
+        .sort(function(a, b){ return a.ci - b.ci; });
+      // earliest free check-in at/after the 9 AM floor (chain past any overlapping occupancy + cleaning)
+      let availFrom = floor, changed = true, guard = 0;
+      while(changed && guard++ < 80){
+        changed = false;
+        intervals.forEach(function(it){ if(it.ci <= availFrom && it.freeAt > availFrom){ availFrom = it.freeAt; changed = true; } });
+      }
+      // the next booking starting at/after that free time — limits how long a new guest can stay
+      let next = null;
+      intervals.forEach(function(it){ if(it.ci >= availFrom && (next === null || it.ci < next)) next = it.ci; });
+      const dot = (HAVEN_COLORS[h] || { am:"#ccc" }).am;
+      const hcell = '<span class="av-hcell"><span class="dot" style="background:' + dot + '"></span>' + h + '</span>';
+      if(availFrom >= dayEnd){
+        return '<tr><td>' + hcell + '</td><td><span class="av-bad">Not available</span></td><td>—</td><td class="muted">free ' + fmtAbs(availFrom) + '</td></tr>';
+      }
+      // which stay lengths (6 / 10 / 21 hrs) fit before the next booking, keeping the cleaning gap
+      const windowMin = (next !== null) ? (next - availFrom) : Infinity;
+      const fits = [6, 10, 21].filter(function(H){ return (H * 60 + CLEANING_GAP_MIN) <= windowMin; });
+      if(!fits.length){
+        return '<tr><td>' + hcell + '</td><td><span class="av-bad">Not available</span></td><td>—</td><td>' + (next !== null ? fmtAbs(next) : "—") + '</td></tr>';
+      }
+      const availTxt = (availFrom <= floor) ? (minToTime(floor - dayAbs) + ' <span class="muted">(open)</span>') : minToTime(availFrom - dayAbs);
+      const hoursTxt = (fits.length === 1 ? String(fits[0]) : (fits.slice(0, -1).join(", ") + " or " + fits[fits.length - 1])) + " hrs";
+      const nextTxt = (next !== null) ? fmtAbs(next) : '<span class="av-open">Open slot</span>';
+      return '<tr><td>' + hcell + '</td><td><b>' + availTxt + '</b></td><td>' + hoursTxt + '</td><td>' + nextTxt + '</td></tr>';
+    }).join("");
+    document.getElementById("tbAvailList").innerHTML = rows
+      ? '<div style="overflow-x:auto;"><table class="av-table"><thead><tr><th>Haven</th><th>Available check-in</th><th>Hours of stay available</th><th>Next check-in</th></tr></thead><tbody>' + rows + '</tbody></table></div>'
+      : '<p class="muted">No havens.</p>';
+  }
+
+  function renderToday(){
+    bookings = loadBookings();
+    const _ab = document.getElementById("approvalBadge");
+    if(_ab){ const n = bookings.filter(b => b.approved !== true).length; _ab.textContent = n ? String(n) : ""; }
+    const _pab = document.getElementById("paymentApprovalBadge");
+    if(_pab){
+      const todayIso = iso(today());
+      let pn = 0;
+      bookings.forEach(b => (b.payments || []).forEach(p => { if(p && p.at && iso(new Date(p.at)) === todayIso && p.approved !== true) pn++; }));
+      _pab.textContent = pn ? String(pn) : "";
+    }
+    const { start, end } = viewRange();
+    const single = (currentView === "today" || currentView === "tomorrow" || currentView === "yesterday");
+    const suffix = currentView === "today" ? "today" : currentView === "tomorrow" ? "tomorrow"
+                 : currentView === "yesterday" ? "yesterday"
+                 : currentView === "week" ? "this week"
+                 : currentView === "custom" ? "selected range" : "this month";
+
+    const lastDay = iso(addDays(new Date(end + "T00:00:00"), -1));
+    document.getElementById("todayDateLabel").textContent = single
+      ? new Date(start + "T00:00:00").toLocaleDateString("en-PH", { weekday:"long", month:"long", day:"numeric", year:"numeric" })
+      : fmt(start) + " – " + fmt(lastDay);
+
+    const tagged = bookings.filter(b => !b.cancelled).map(b => ({ b, info: rangeInfo(b, start, end) })).filter(x => x.info.relevant);
+    const arrivals = tagged.filter(x => x.info.arrives).map(x => x.b)
+      .sort((a,c) => (a.checkin||"").localeCompare(c.checkin||"") || bookingCheckinMin(a) - bookingCheckinMin(c));
+    const others = tagged.filter(x => !x.info.arrives).map(x => x.b)
+      .sort((a,c) => (a.checkout||"").localeCompare(c.checkout||"") || checkoutTimeStr(a).localeCompare(checkoutTimeStr(c)));
+
+    const departCount = tagged.filter(x => x.info.departs).length;
+    const inHouseCount = tagged.filter(x => x.info.staying).length;
+    const toCollect = arrivals.reduce((s,b) => s + balanceOf(b), 0);
+
+    // "Collected" is DATE-BASED (cash actually received in this range): each payment counts on its own
+    // date. A collection uses its recorded date (p.at). The downpayment uses its dpDate if set (editable
+    // per booking), else falls back to the booking-created date / check-in — so a downpayment taken on
+    // an earlier day counts THAT day, not today. Cancelled bookings never count.
+    const MOPS = ["Cash", "GCash", "BDO", "Maya", "Maribank", "Others"];
+    const byMop = {}; MOPS.forEach(m => byMop[m] = 0);
+    const bucket = (mop, amt) => { byMop[MOPS.includes(mop) ? mop : "Others"] += amt; };
+    // A downpayment is collected when the booking is MADE (online / walk-in), so it counts on that day —
+    // its dpDate if set, else the booking-created day (bookedAt, or derived from the timestamp id), else
+    // check-in. So an online booking's downpayment (paid on a past day) is NOT in today's collected.
+    const dpDayOf = b => {
+      if(b.dpDate) return b.dpDate;
+      if(b.bookedAt){ const s = String(b.bookedAt).slice(0, 10); if(/^\d{4}-\d\d-\d\d$/.test(s)) return s; }
+      const idn = Number(b.id);
+      if(isFinite(idn) && idn >= 1e12){
+        const ms = idn >= 1e15 ? Math.floor(idn / 1000) : idn;
+        const d = new Date(ms);
+        if(!isNaN(d.getTime()) && d.getFullYear() >= 2020 && d.getFullYear() < 2100) return iso(d);
+      }
+      return b.checkin || null;
+    };
+    // Collected = every payment whose DATE falls in the range, across ALL bookings — arrivals' payments,
+    // in-house/departing guests' add-ons or extra payments dated today, and new (Add-booking) payments
+    // dated today. Each collection counts on its recorded date (p.at); the downpayment counts on the day
+    // it was collected (dpDayOf → the booking-made day), so an online downpayment paid earlier is excluded.
+    let collected = 0;
+    bookings.forEach(b => {
+      if(b.cancelled) return;
+      const dp = Number(b.downpayment) || 0;
+      if(dp > 0){
+        const dpDay = dpDayOf(b);
+        if(dpDay && dpDay >= start && dpDay < end){ collected += dp; bucket(b.method, dp); }
+      }
+      (b.payments || []).forEach(p => {
+        const amt = Number(p.amount) || 0; if(!amt) return;
+        const payDay = p.at ? iso(new Date(p.at)) : null;
+        if(payDay && payDay >= start && payDay < end){ collected += amt; bucket(p.mop, amt); }
+      });
+    });
+
+    // extra figures for the card sub-labels
+    const inHouseGuests = tagged.filter(x => x.info.staying)
+      .reduce((s, x) => s + ((x.b.guests || []).length || 0), 0);
+    const balancesOpen = arrivals.filter(b => balanceOf(b) > 0).length;
+    const nextArr = arrivals.length ? checkinTimeStr(arrivals[0]) : "";
+
+    const ICON = {
+      arrive:'<svg viewBox="0 0 24 24"><path d="M15 3h4a2 2 0 0 1 2 2v14a2 2 0 0 1-2 2h-4"/><path d="m10 17 5-5-5-5"/><path d="M15 12H3"/></svg>',
+      depart:'<svg viewBox="0 0 24 24"><path d="M9 3H5a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h4"/><path d="m16 17 5-5-5-5"/><path d="M21 12H9"/></svg>',
+      bed:'<svg viewBox="0 0 24 24"><path d="M2 20v-7a2 2 0 0 1 2-2h16a2 2 0 0 1 2 2v7"/><path d="M2 16h20"/><path d="M6 11V8.5A1.5 1.5 0 0 1 7.5 7h3A1.5 1.5 0 0 1 12 8.5V11"/></svg>',
+      clock:'<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>',
+      cash:'<svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg>'
+    };
+    const cards = [
+      { label:"Arriving " + suffix,  val:arrivals.length, ico:ICON.arrive, chip:"ico-green", sub: nextArr ? "Next at " + nextArr : "" },
+      { label:"Departing " + suffix, val:departCount,     ico:ICON.depart, chip:"ico-terra", sub: departCount ? departCount + " checkout" + (departCount > 1 ? "s" : "") : "" },
+      { label:(currentView === "today" ? "In-house now" : "In-house"), val:inHouseCount, ico:ICON.bed, chip:"ico-brown", sub: inHouseGuests ? inHouseGuests + " guests total" : "" },
+      { label:"To collect " + suffix, val:peso(toCollect), ico:ICON.clock, chip:"ico-gold", sub: balancesOpen ? balancesOpen + " balance" + (balancesOpen > 1 ? "s" : "") + " open" : "" },
+      { label:"Collected " + suffix,  val:peso(collected), ico:ICON.cash,  chip:"ico-green", sub:"" }
+    ];
+    document.getElementById("todayCards").innerHTML = cards.map(c =>
+      `<div class="card">
+        <div class="card-top"><span class="card-label">${c.label}</span><span class="card-ico ${c.chip}">${c.ico}</span></div>
+        <div class="number">${c.val}</div>
+        ${c.sub ? `<div class="card-sub">${c.sub}</div>` : ""}
+      </div>`).join("");
+
+    document.getElementById("mopHeading").textContent = "Collected " + suffix + " by payment method";
+    document.getElementById("arriveHeading").textContent = "Arriving " + suffix;
+    document.getElementById("stayHeading").innerHTML = "In-house &amp; departing " + suffix;
+
+    document.getElementById("mopGrid").innerHTML = MOPS.map(m =>
+      `<div class="mop-item"><span class="mop-label">${m}</span><span class="mop-val">${peso(byMop[m])}</span></div>`).join("");
+
+    const arrivePill = b => statusOf(b) === "paid"
+      ? '<span class="status paid">Paid</span>'
+      : '<span class="status confirmed">Confirmed</span>';
+    const stayPill = b => rangeInfo(b, start, end).departs
+      ? '<span class="status departing">Departing</span>'
+      : '<span class="status inhouse">In-house</span>';
+
+    document.getElementById("todayArriveBody").innerHTML = arrivals.length
+      ? arrivals.map(b => todayRow(b, balanceOf(b), arrivePill(b))).join("")
+      : `<tr><td colspan="9" class="empty">No arrivals ${suffix}.</td></tr>`;
+    document.getElementById("todayArriveCount").textContent = arrivals.length ? `(${arrivals.length})` : "";
+
+    document.getElementById("todayStayBody").innerHTML = others.length
+      ? others.map(b => todayRow(b, balanceOf(b), stayPill(b))).join("")
+      : `<tr><td colspan="9" class="empty">Nobody else in-house or departing ${suffix}.</td></tr>`;
+    document.getElementById("todayStayCount").textContent = others.length ? `(${others.length})` : "";
+
+    // if the Availability tab is the one on screen, keep it fresh too — Refresh and cross-tab
+    // updates both land here, and otherwise the availability table would show stale occupancy.
+    const availTab = document.querySelector('#arrivePanel .ap-tab[data-at="availability"]');
+    if(availTab && availTab.classList.contains("active")) renderAvailability();
+  }
+
+  // jump to another dashboard page — remember it so dashboard.html opens there
+  function goPage(page){
+    localStorage.setItem("shph_dashboard_page", page);
+    window.location.href = "/dashboard.html";
+  }
+  function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
+  function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
+  // shared activity log (viewable on the dashboard's Log page)
+  function logActivity(action){
+    try {
+      let log = [];
+      try { log = JSON.parse(localStorage.getItem("shph_activity_log")) || []; } catch(e){}
+      log.push({ user: currentUser(), action, at: new Date().toISOString() });
+      localStorage.setItem("shph_activity_log", JSON.stringify(log.slice(-500)));
+    } catch(e){ /* never let logging break an action (e.g. storage full) */ }
+  }
+  // after creating a booking, confirm the server actually stored it (the bookings
+  // write is a large array that can be dropped on a flaky connection). Re-send and
+  // retry, then warn the user so a customer booking is never silently lost.
+  async function confirmBookingSaved(id){
+    if(id == null) return;
+    for(let attempt = 1; attempt <= 4; attempt++){
+      await new Promise(r => setTimeout(r, 800 * attempt));
+      try {
+        const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
+        if(res.ok){
+          const arr = await res.json();
+          if(Array.isArray(arr) && arr.some(b => String(b.id) === String(id))) return;  // confirmed
+        }
+      } catch(e){ /* offline → try again */ }
+      try { saveBookings(bookings); } catch(e){}   // re-send (mirror retries)
+    }
+    alert("⚠️ The booking is saved on THIS device, but the server hasn't confirmed it yet "
+      + "(slow or unstable connection).\n\nPlease check your internet and REFRESH the page — "
+      + "if the booking is missing, add it again.");
+  }
+  // confirm a CHANGE to an existing booking (e.g. a payment/collection) actually reached the
+  // server. confirmBookingSaved only checks the id exists — which is always true for an edit,
+  // so it can't catch a lost payment. This verifies the server's copy is as fresh as our edit.
+  async function confirmBookingFresh(id, stamp){
+    if(id == null || !stamp) return;
+    for(let attempt = 1; attempt <= 5; attempt++){
+      await new Promise(r => setTimeout(r, 900 * attempt));
+      try {
+        const res = await fetch("/api/kv/" + encodeURIComponent(KEY), { cache:"no-store" });
+        if(res.ok){
+          const arr = await res.json();
+          const sb = Array.isArray(arr) && arr.find(b => String(b.id) === String(id));
+          if(sb && sb.updatedAt && String(sb.updatedAt) >= String(stamp)) return;  // server has our change
+        }
+      } catch(e){ /* offline → retry */ }
+      try { saveBookings(bookings); } catch(e){}   // nudge the durable queue to re-send
+    }
+    alert("⚠️ The payment is saved on THIS device, but the server hasn't confirmed it yet "
+      + "(slow / unstable connection).\n\nKeep this tab OPEN and check your internet — it keeps "
+      + "retrying automatically. Don't close the tab until the red 'unsaved' banner disappears.");
+  }
+  // is the logged-in user an administrator? (unknown / direct access = treated as admin)
+  /* ---------- access control (mirrors dashboard.html) ---------- */
+  const PAGE_KEYS = ["today","addbooking","calendar","guestform","approval","paymentapproval","deposit","havens","booking","cleaners","finance","payments","payroll","bills","expenses","analytics","users","employees","assist","log"];
+  // resolve the logged-in user from the RAW stored name (no "Admin" default), so a
+  // missing/unknown session can't inherit admin access and flash the full sidebar
+  function currentUserObj(){
+    try {
+      const name = (localStorage.getItem("shph_current_user") || "").trim();
+      if(!name) return null;
+      const users = JSON.parse(localStorage.getItem("shph_users")) || [];
+      return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
+    } catch(e){ return null; }
+  }
+  // fail CLOSED: an unrecognised user gets no admin / no pages
+  function isAdmin(){ const u = currentUserObj(); return !!(u && u.admin); }
+  let IS_ADMIN = isAdmin();
+  function currentPerms(){
+    const u = currentUserObj();
+    if(!u) return [];
+    if(u.admin) return PAGE_KEYS;
+    return u.perms || [];
+  }
+  // admins, CSRs, and users granted the "Add Booking" permission may create bookings
+  function canAddBooking(){
+    if(IS_ADMIN) return true;
+    if(currentPerms().includes("addbooking")) return true;
+    try {
+      const st = JSON.parse(localStorage.getItem("shph_staff_v1")) || [];
+      const un = currentUser().trim().toLowerCase();
+      const owns = s => {
+        const sn = (s.name || "").trim().toLowerCase();
+        return sn === un || sn.startsWith(un + " ") || sn.split(/\s+/)[0] === un;
+      };
+      return st.filter(owns).some(s => s.role === "CSR");
+    } catch(e){ return false; }
+  }
+  function applyPerms(){
+    // no recognised logged-in user → send to login instead of revealing anything
+    if(!currentUserObj()){ window.location.href = "/admin.html"; return; }
+    const admin = IS_ADMIN;
+    // Branded per-user URL (e.g. /nicole-todaysbooking) is LOCKED to its owner — only that user
+    // (or an admin, so the owner is never locked out) may open it; a different signed-in user is
+    // bounced to the plain dashboard. Logged-out visitors were already sent to login just above.
+    const _bo = (location.pathname.replace(/\/+$/, "").toLowerCase().match(/^\/([a-z]+)-(?:todaysbooking|dashboard)$/) || [])[1];
+    if(_bo && !admin){
+      const _me = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
+      if(_me !== _bo){
+        alert("This page is only for " + _bo.charAt(0).toUpperCase() + _bo.slice(1) + "'s account. You're signed in as someone else.");
+        window.location.href = "/dashboard.html"; return;
+      }
+    }
+    const perms = currentPerms();
+    // not allowed to view Today's Booking → bounce to the dashboard (it routes to an allowed page)
+    if(!admin && !perms.includes("today")){ window.location.href = "/dashboard.html"; return; }
+    // hide sidebar items the user can't access
+    document.querySelectorAll(".sidebar .nav-item").forEach(n => {
+      const pg = n.dataset.page;
+      if(!pg) return;
+      const ok = (pg === "users") ? admin : (admin || perms.includes(pg));
+      n.style.display = ok ? "flex" : "none";
+    });
+    // hide a section header (Property / Finance / Team …) when all its items are hidden
+    document.querySelectorAll(".sidebar .nav-group").forEach(g => {
+      let sib = g.nextElementSibling, any = false;
+      while(sib && !(sib.classList && sib.classList.contains("nav-group"))){
+        if(sib.classList && sib.classList.contains("nav-item") && sib.style.display !== "none"){ any = true; break; }
+        sib = sib.nextElementSibling;
+      }
+      g.style.display = any ? "" : "none";
+    });
+    document.querySelector(".sidebar").classList.remove("perms-pending");  // reveal now that it's filtered
+    const ab = document.getElementById("addBookingBtn");
+    if(ab) ab.style.display = canAddBooking() ? "" : "none";   // only admin/CSR can add bookings
+  }
+
+  /* ---------- payment / collection popup ---------- */
+  let payBookingId = null, payProof = null, payEditing = false, payEditIndex = -1, payEditDown = false;
+
+  // show the downpayment's uploaded proof photo (recorded on the booking) in the lightbox
+  function viewDownProof(id){
+    const b = bookings.find(x => x.id === id);
+    if(b && b.downProof) openProofImg(b.downProof);
+    else uhOhNoProof();
+  }
+  function uhOhNoProof(){ alert("No downpayment proof was uploaded for this booking."); }
+
+  // list of all payments made for this booking
+  function renderPayList(b){
+    const el = document.getElementById("payList");
+    const pays = (b && b.payments) || [];
+    const dp = Number(b && b.downpayment) || 0;
+    const count = pays.length + (dp > 0 ? 1 : 0);
+    if(!count){ el.innerHTML = ""; return; }
+    const check = `<span class="pli-check"><svg viewBox="0 0 24 24"><path d="m5 12 4.5 4.5L19 7"/></svg></span>`;
+    let html = `<div class="pay-list-title">Payments made <span class="plt-count">(${count})</span></div>`;
+    if(dp > 0){
+      const hasProof = !!b.downProof;
+      html += `<div class="pay-list-item ${payEditDown ? "active" : ""}">
+          ${check}
+          <span class="pli-main" onclick="loadDownInto()" style="cursor:pointer;"><strong>${peso(dp)}</strong> · Downpayment · ${b.method || "—"}
+            <small>tap to edit (amount / date / method)${hasProof ? " · view proof →" : ""}</small></span>
+          ${hasProof ? `<span class="pli-del" style="color:#2b6cb0;" onclick="viewDownProof(${b.id})">View</span>` : ""}
+        </div>`;
+    }
+    html += pays.map((p, i) => `
+        <div class="pay-list-item ${i === payEditIndex ? "active" : ""}">
+          ${check}
+          <span class="pli-main" onclick="loadPayInto(${i})">
+            <strong>${peso(p.amount)}</strong> · ${p.category || "Balance"} · ${p.mop}
+            <small>${new Date(p.at).toLocaleString("en-PH", {month:"short",day:"numeric",hour:"numeric",minute:"2-digit"})}${p.by ? " · " + p.by : ""}</small>
+          </span>
+          <span class="pli-del" onclick="deletePaymentAt(${i})">Delete</span>
+        </div>`).join("");
+    el.innerHTML = html;
+  }
+  // fill the form from a payment (p = null → blank new entry)
+  function fillPayForm(b, p){
+    const prev = document.getElementById("payPreview");
+    document.getElementById("payFile").value = "";
+    const nameEl = document.getElementById("payFileName");
+    if(p){
+      document.getElementById("payAmount").value = Number(p.amount) || 0;
+      document.getElementById("payMop").value = p.mop || "Cash";
+      document.getElementById("payFor").value = p.category || "Balance";
+      payDateSet(p.at ? iso(new Date(p.at)) : iso(today()));
+      payProof = p.proof || null;
+      if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
+      if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
+    } else {
+      document.getElementById("payAmount").value = balanceOf(b);
+      document.getElementById("payMop").selectedIndex = 0;
+      document.getElementById("payFor").value = "Balance";
+      payDateSet(iso(today()));
+      payProof = null; prev.src = ""; prev.style.display = "none";
+      if(nameEl) nameEl.textContent = "No file chosen";
+    }
+  }
+  function updatePayButtons(editingExisting){
+    document.getElementById("payDelBtn").style.display = editingExisting ? "inline-block" : "none";
+    document.getElementById("payAddBtn").style.display = editingExisting ? "inline-block" : "none";  // "+ Add payment" = new entry
+    document.getElementById("paySaveAddBtn").style.display = editingExisting ? "none" : "inline-block";
+    document.getElementById("paySaveBtn").textContent = editingExisting ? "Update Payment" : "Save Payment";
+  }
+  // ---- styled "Date collected" calendar (matches the app's other date pickers) ----
+  let payDpMonth = null;
+  function payDpFmt(ci){ if(!ci) return "Pick a date"; const d = new Date(ci + "T00:00:00"); return TB_MONTHS[d.getMonth()].slice(0,3) + " " + d.getDate() + ", " + d.getFullYear(); }
+  function payDateSet(ci){
+    const inp = document.getElementById("payDate"); if(inp) inp.value = ci || "";
+    const lbl = document.getElementById("payDateLabel"); if(lbl) lbl.textContent = payDpFmt(ci);
+  }
+  function payDpToggle(e){
+    if(e) e.stopPropagation();
+    const pop = document.getElementById("payDpPop");
+    if(pop.style.display === "block"){ pop.style.display = "none"; return; }
+    const cur = document.getElementById("payDate").value;
+    const base = cur ? new Date(cur + "T00:00:00") : today();
+    payDpMonth = new Date(base.getFullYear(), base.getMonth(), 1);
+    payDpRender();
+    pop.style.display = "block";
+  }
+  function payDpNav(dir){ payDpMonth = new Date(payDpMonth.getFullYear(), payDpMonth.getMonth() + dir, 1); payDpRender(); }
+  function payDpRender(){
+    const y = payDpMonth.getFullYear(), m = payDpMonth.getMonth();
+    document.getElementById("payDpTitle").textContent = TB_MONTHS[m] + " " + y;
+    const startDay = new Date(y, m, 1).getDay();
+    const daysInMonth = new Date(y, m + 1, 0).getDate();
+    const todayIso = iso(today()), selIso = document.getElementById("payDate").value;
+    let html = "";
+    ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
+    for(let i = 0; i < startDay; i++) html += `<div class="dp-day empty"></div>`;
+    for(let d = 1; d <= daysInMonth; d++){
+      const ci = iso(new Date(y, m, d));
+      html += `<div class="dp-day${ci === todayIso ? " today" : ""}${ci === selIso ? " sel" : ""}" onclick="payDpPick('${ci}')"><span class="n">${d}</span></div>`;
+    }
+    document.getElementById("payDpGrid").innerHTML = html;
+  }
+  function payDpPick(ci){ payDateSet(ci); const p = document.getElementById("payDpPop"); if(p) p.style.display = "none"; }
+  document.addEventListener("click", function(){ const p = document.getElementById("payDpPop"); if(p && p.style.display === "block") p.style.display = "none"; });
+  // the chosen collection date (with current time-of-day) so late inputs land on the right day
+  function payAtFromInput(){
+    const d = document.getElementById("payDate").value;
+    const now = new Date();
+    if(!d) return now.toISOString();
+    const dt = new Date(d + "T00:00:00");
+    dt.setHours(now.getHours(), now.getMinutes(), now.getSeconds());
+    return dt.toISOString();
+  }
+  function payInfoLine(b){
+    const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
+    const collected = paidOf(b);          // total received = downpayment + later collections
+    const balance = balanceOf(b);
+    const total = Number(b.total || 0) || (collected + balance);
+    const pct = total > 0 ? Math.max(0, Math.min(100, Math.round(collected / total * 100))) : 0;
+    return `
+      <div class="pi-head"><strong>${b.haven}</strong> <span class="pi-guest">— ${guest}</span></div>
+      <div class="pi-stats">
+        <div class="pi-stat"><span class="pi-label">Collected</span><span class="pi-val paid">${peso(collected)}</span></div>
+        <div class="pi-stat"><span class="pi-label">Balance</span><span class="pi-val bal">${peso(balance)}</span></div>
+      </div>
+      <div class="pi-bar"><span style="width:${pct}%"></span></div>`;
+  }
+
+  // short, STABLE booking code DERIVED from the id — identical algorithm to dashboard.html deriveCode()
+  // so the same booking shows the same code everywhere. No randomness/storage → it can never change.
+  function tbBookingCode(b){
+    if(!b || b.id == null) return "";
+    const CH = "ABCDEFGHJKMNPQRSTUVWXYZ23456789";
+    let h = 2166136261 >>> 0;
+    const s = String(b.id);
+    for(let i=0;i<s.length;i++){ h ^= s.charCodeAt(i); h = Math.imul(h, 16777619) >>> 0; }
+    let c = "";
+    for(let i=0;i<6;i++){ c += CH.charAt(h % CH.length); h = Math.imul(h ^ (h >>> 13), 2654435761) >>> 0; }
+    return c;
+  }
+  function openPay(id, edit){
+    payBookingId = id; payProof = null; payEditDown = false;
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const pays = b.payments || [];
+    document.getElementById("payEyebrow").textContent = "Booking #" + tbBookingCode(b);
+    document.getElementById("payInfo").innerHTML = payInfoLine(b);
+    if(edit && pays.length){
+      payEditIndex = pays.length - 1; payEditing = true;
+      document.getElementById("payTitle").textContent = "Edit Payment";
+      fillPayForm(b, pays[payEditIndex]);
+      updatePayButtons(true);
+    } else {
+      payEditIndex = -1; payEditing = false;
+      document.getElementById("payTitle").textContent = "Record Payment";
+      fillPayForm(b, null);
+      updatePayButtons(false);
+    }
+    renderPayList(b);
+    document.getElementById("payOverlay").classList.add("show");
+  }
+  // click a payment in the list to edit it
+  function loadPayInto(index){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b || !b.payments || !b.payments[index]) return;
+    payEditIndex = index; payEditing = true; payEditDown = false;
+    document.getElementById("payTitle").textContent = "Edit Payment";
+    fillPayForm(b, b.payments[index]);
+    updatePayButtons(true);
+    renderPayList(b);
+  }
+  // edit the booking's DOWNPAYMENT (amount / method / date collected / proof) from the payments list
+  function loadDownInto(){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    payEditing = false; payEditIndex = -1; payEditDown = true;
+    document.getElementById("payTitle").textContent = "Edit Downpayment";
+    document.getElementById("payAmount").value = Number(b.downpayment) || 0;
+    document.getElementById("payMop").value = b.method || "Cash";
+    document.getElementById("payFor").value = "Downpayment";
+    payDateSet(b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || iso(today()))));
+    payProof = b.downProof || null;
+    const prev = document.getElementById("payPreview"), nameEl = document.getElementById("payFileName");
+    if(payProof){ prev.src = payProof; prev.style.display = "block"; } else { prev.src = ""; prev.style.display = "none"; }
+    if(nameEl) nameEl.textContent = payProof ? "Photo attached ✓" : "No file chosen";
+    document.getElementById("payFile").value = "";
+    // downpayment isn't a deletable payment row; show only a single Save
+    document.getElementById("payDelBtn").style.display = "none";
+    document.getElementById("payAddBtn").style.display = "none";
+    document.getElementById("paySaveAddBtn").style.display = "none";
+    const sb = document.getElementById("paySaveBtn"); sb.style.display = "inline-block"; sb.textContent = "Update Downpayment";
+    renderPayList(b);
+  }
+  // delete a specific payment by index
+  let _deletingPay = false;
+  async function deletePaymentAt(index){
+    if(payBookingId == null) return;
+    const data = loadBookings();
+    const b = data.find(x => x.id === payBookingId);
+    if(!b || !b.payments || !b.payments[index]){ return; }
+    const p = b.payments[index];
+    if(!confirm(`Delete this ${p.category || "Balance"} payment of ${peso(p.amount)}? This cannot be undone.`)) return;
+    if(_deletingPay) return;   // block double-click (a legacy payment falls back to index → could hit the neighbor)
+    _deletingPay = true;
+    try{
+    // PER-RECORD delete — touches only this booking's payments on the live server record
+    let ok = false;
+    try{ const res = await fetch("/api/booking/" + encodeURIComponent(payBookingId) + "/payment", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ deleteId: p.pid, deleteIndex: index }) }); ok = res.ok; }catch(e){}
+    if(!ok){ alert("⚠️ Couldn't delete the payment — the server didn't confirm (slow / offline). Please try again."); return; }
+    b.payments.splice(index, 1);
+    const clearAddon = ('addonProof' in b) && !(b.payments || []).some(x => x.category === "Add Ons");
+    if(clearAddon) delete b.addonProof;
+    b.updatedAt = new Date().toISOString();
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(data)); }catch(e){}
+    if(clearAddon){ try{ await fetch("/api/booking/" + encodeURIComponent(payBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { addonProof: null } }) }); }catch(e){} }
+    logActivity(`deleted ${p.category || "Balance"} payment — ${b.haven} · ${peso(p.amount)} (${p.mop})`);
+    bookings = data;
+    renderToday();
+    if(b.payments.length) openPay(payBookingId, true);   // reopen showing remaining
+    else closePay();
+    } finally { _deletingPay = false; }
+  }
+  // Delete button (deletes the payment currently in the form)
+  function deletePaymentEntry(){
+    if(payEditIndex >= 0) deletePaymentAt(payEditIndex);
+    else closePay();
+  }
+  // "+ Add payment" — switch to a blank new entry without leaving the popup
+  function addFollowUpPayment(){
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    payEditing = false; payEditIndex = -1; payEditDown = false;
+    document.getElementById("payTitle").textContent = "Record Payment";
+    fillPayForm(b, null);
+    document.getElementById("payFor").value = "Add Ons";   // follow-ups are usually add-ons
+    updatePayButtons(false);
+    renderPayList(b);
+  }
+  function closePay(){
+    payBookingId = null; payProof = null; payEditing = false; payEditIndex = -1; payEditDown = false;
+    document.getElementById("payOverlay").classList.remove("show");
+  }
+  // shrink + compress an image to keep localStorage small
+  function resizeImage(file, cb){
+    const reader = new FileReader();
+    reader.onload = e => {
+      const img = new Image();
+      img.onload = () => {
+        const max = 1000;
+        let w = img.width, h = img.height;
+        if(w > max || h > max){ const r = Math.min(max / w, max / h); w = Math.round(w * r); h = Math.round(h * r); }
+        const canvas = document.createElement("canvas");
+        canvas.width = w; canvas.height = h;
+        canvas.getContext("2d").drawImage(img, 0, 0, w, h);
+        cb(canvas.toDataURL("image/jpeg", 0.7));
+      };
+      img.src = e.target.result;
+    };
+    reader.readAsDataURL(file);
+  }
+  // shared: accept an image File from the picker, a drop, or a paste
+  function applyPayProofFile(f){
+    if(!f || !/^image\//.test(f.type)) return;
+    const nameEl = document.getElementById("payFileName");
+    if(nameEl) nameEl.textContent = f.name || "Photo attached";
+    resizeImage(f, dataUrl => {
+      payProof = dataUrl;
+      const prev = document.getElementById("payPreview");
+      prev.src = payProof; prev.style.display = "block";
+    });
+  }
+  function onProofChange(input){
+    if(input.files[0]) applyPayProofFile(input.files[0]);
+    else payProof = null;
+  }
+  // drag & drop onto the upload card
+  (function initPayProofDnd(){
+    const card = document.querySelector("#payOverlay .pay-upload");
+    if(!card) return;
+    card.addEventListener("dragover", e => { e.preventDefault(); card.classList.add("drag"); });
+    card.addEventListener("dragleave", e => { if(!card.contains(e.relatedTarget)) card.classList.remove("drag"); });
+    card.addEventListener("drop", e => {
+      e.preventDefault(); card.classList.remove("drag");
+      const files = e.dataTransfer && e.dataTransfer.files;
+      if(files && files.length) applyPayProofFile(files[0]);
+    });
+  })();
+  // paste an image (Ctrl/Cmd+V) while the Record Payment popup is open
+  document.addEventListener("paste", e => {
+    const ov = document.getElementById("payOverlay");
+    if(!ov || !ov.classList.contains("show")) return;
+    const items = (e.clipboardData && e.clipboardData.items) || [];
+    for(const it of items){
+      if(it.kind === "file" && /^image\//.test(it.type)){
+        const f = it.getAsFile();
+        if(f){ e.preventDefault(); applyPayProofFile(f); return; }
+      }
+    }
+  });
+  let _savingPay = false;
+  let _pmtIdLast = 0;   // monotonic guard for payment ids minted this tab (see pmtId below)
+  async function savePay(again){
+    if(_savingPay) return;   // block rapid double-clicks — they were appending DUPLICATE payments
+    const bookingId = payBookingId;
+    if(payBookingId == null) return;
+    if(!payEditDown && !payProof){ alert("Please upload a photo of the proof of payment."); return; }
+    const mop = document.getElementById("payMop").value;
+    const category = document.getElementById("payFor").value; // "Balance" or "Add Ons"
+    const amount = Number(document.getElementById("payAmount").value) || 0;
+    if(amount <= 0){ alert("Please enter the amount collected."); return; }
+    _savingPay = true;
+    const _payBtns = ["paySaveBtn","paySaveAddBtn"].map(i => document.getElementById(i)).filter(Boolean);
+    _payBtns.forEach(x => x.disabled = true);
+    try{
+    // always work off the freshest data in storage
+    bookings = loadBookings();
+    const b = bookings.find(x => x.id === payBookingId);
+    if(!b) return;
+    b.payments = b.payments || [];
+    const editing = !!(payEditing && payEditIndex >= 0 && b.payments[payEditIndex]);
+
+    // 1) offload the proof photo to a tiny /img link so the request stays small
+    let proofRef = payProof;
+    if(payProof && payProof.indexOf("data:image") === 0){
+      try{
+        const r = await fetch("/api/img", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ data: payProof }) });
+        if(r.ok){ const j = await r.json(); if(j && j.url) proofRef = j.url; }
+      }catch(e){}
+    }
+
+    // 1b) editing the booking's DOWNPAYMENT (not a payment record) → patch the booking's own fields.
+    // Also route a "Downpayment"-category save here as a backstop so it can never become a phantom
+    // payment record that double-counts the downpayment.
+    if(payEditDown || category === "Downpayment"){
+      const set = { downpayment: amount, method: mop, dpDate: document.getElementById("payDate").value || null, downProof: proofRef || null };
+      let okDp = false;
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set }) }); okDp = res.ok; }catch(e){}
+      if(!okDp){ alert("⚠️ The downpayment was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+      Object.assign(b, set); b.updatedAt = new Date().toISOString();
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      logActivity(`edited downpayment — ${b.haven} · ${peso(amount)} (${mop})`);
+      renderToday();
+      closePay();
+      return;
+    }
+
+    // 2) build the payment record — each carries a stable `pid` so edits/deletes match by id, not position.
+    //    Monotonic within the tab (like dashboard's uid()) so two payments minted in the same millisecond
+    //    can't collide into the same pid (which would misroute a later edit/delete to the wrong payment).
+    const pmtId = () => { let t = Date.now() * 1000 + Math.floor(Math.random() * 1000); if(t <= _pmtIdLast) t = _pmtIdLast + 1; _pmtIdLast = t; return t; };
+    const existingPid = editing ? b.payments[payEditIndex].pid : null;   // null for legacy → server uses index fallback
+    const payment = editing
+      ? Object.assign({}, b.payments[payEditIndex], { pid: b.payments[payEditIndex].pid || pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), editedAt: new Date().toISOString(), editedBy: currentUser() })
+      : { pid: pmtId(), amount, mop, category, proof: proofRef, at: payAtFromInput(), by: currentUser() };
+
+    // 3) PER-RECORD write — touches ONLY this booking on the server, so a payment can NEVER
+    //    overwrite another booking (this replaces the old whole-array save that lost data).
+    let ok = false;
+    try{
+      const res = await fetch("/api/booking/" + encodeURIComponent(bookingId) + "/payment", {
+        method:"POST", headers:{"Content-Type":"application/json"},
+        body: JSON.stringify({ payment, editId: existingPid, editIndex: editing ? payEditIndex : null })
+      });
+      ok = res.ok;
+    }catch(e){}
+    if(!ok){
+      alert("⚠️ The payment was NOT saved — the server didn't confirm (slow / offline). Please try again.");
+      return;
+    }
+
+    // 4) reflect locally WITHOUT re-pushing the whole array (no clobber). The server already has it.
+    if(editing) b.payments[payEditIndex] = payment;
+    else b.payments.push(payment);
+    b.updatedAt = new Date().toISOString();
+    try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+    logActivity(`${editing ? "edited" : "uploaded"} ${category} payment — ${b.haven} · ${peso(amount)} (${mop})`);
+    renderToday();
+    if(again){
+      openPay(bookingId, false);   // keep the popup open for the next entry
+    } else {
+      closePay();
+    }
+    } finally {
+      _savingPay = false;
+      _payBtns.forEach(x => { if(x) x.disabled = false; });
+    }
+  }
+  function openProofImg(src){
+    if(!src) return;
+    document.getElementById("imgLightboxImg").src = src;
+    document.getElementById("imgLightbox").classList.add("show");
+  }
+  // close when clicking the dark backdrop
+  document.getElementById("payOverlay").addEventListener("click", e => {
+    if(e.target.id === "payOverlay") closePay();
+  });
+  function goBack(){
+    if(window.opener && !window.opener.closed){ window.close(); }
+    else { window.location.href = "/dashboard.html"; }
+  }
+
+  /* ---------- late add-ons (pool pass / towels) added to an existing booking ---------- */
+  let addonBookingId = null;
+  const TOWEL_RATE = 50, POOL_RATE = 150, POOL_RATE_HOLIDAY = 300, EXTEND_RATE = 150;
+  function openAddon(id){
+    addonBookingId = id;
+    const b = bookings.find(x => x.id === id);
+    if(!b) return;
+    const guest = (b.guests && b.guests[0] && b.guests[0].name) || "";
+    document.getElementById("addonInfo").innerHTML =
+      `<strong>${b.haven}</strong> — ${guest}<br>Current: <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg>${Number(b.swimpass)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><rect x="5" y="3" width="14" height="18" rx="2"/><path d="M9 3v18"/></svg>${Number(b.towels)||0}</span> <span class="addon"><svg class="addon-ico" viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M12 7v5l3 2"/></svg>${Number(b.extend)||0}h</span> · Balance: <strong>${peso(balanceOf(b))}</strong>`;
+    document.getElementById("addonPool").value = 0;
+    document.getElementById("addonTowels").value = 0;
+    document.getElementById("addonHours").value = 0;
+    document.getElementById("addonHoliday").checked = !!b.holiday;
+    addonRecalc();
+    document.getElementById("addonOverlay").classList.add("show");
+  }
+  function addonAddedAmount(){
+    const pool = Number(document.getElementById("addonPool").value) || 0;
+    const tow  = Number(document.getElementById("addonTowels").value) || 0;
+    const hrs  = Number(document.getElementById("addonHours").value) || 0;
+    const poolRate = document.getElementById("addonHoliday").checked ? POOL_RATE_HOLIDAY : POOL_RATE;
+    return { pool, tow, hrs, added: pool * poolRate + tow * TOWEL_RATE + hrs * EXTEND_RATE };
+  }
+  function addonRecalc(){
+    const { added } = addonAddedAmount();
+    document.getElementById("addonTotalInfo").innerHTML = `Added to bill: <strong>${peso(added)}</strong>`;
+  }
+  function closeAddon(){ addonBookingId = null; document.getElementById("addonOverlay").classList.remove("show"); }
+  let _savingAddon = false;
+  async function saveAddon(){
+    if(addonBookingId == null) return;
+    const { pool, tow, hrs, added } = addonAddedAmount();
+    if(pool <= 0 && tow <= 0 && hrs <= 0){ alert("Enter pool passes, towels, or hours to add."); return; }
+    if(_savingAddon) return;   // block double-click (a 2nd click would double-charge the add-ons)
+    _savingAddon = true;
+    try{
+      const data = loadBookings();
+      const b = data.find(x => x.id === addonBookingId);
+      if(!b) return;
+      // compute the new values WITHOUT mutating anything yet — so a failed save leaves state unchanged
+      const newSwim  = (Number(b.swimpass) || 0) + pool;
+      const newTow   = (Number(b.towels)   || 0) + tow;
+      const newExt   = (Number(b.extend)   || 0) + hrs;
+      const newTotal = (Number(b.total)    || 0) + added;   // the late charge added to the bill
+      const newLog   = (b.addonLog || []).concat([{ pool, towels: tow, hours: hrs, amount: added, at: new Date().toISOString(), by: currentUser() }]);
+      // PER-RECORD patch — updates only these fields on the live booking (can't clobber other data)
+      let ok = false;
+      try{ const res = await fetch("/api/booking/" + encodeURIComponent(addonBookingId) + "/patch", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set: { swimpass: newSwim, towels: newTow, extend: newExt, total: newTotal, addonLog: newLog } }) }); ok = res.ok; }catch(e){}
+      if(!ok){ alert("⚠️ Couldn't save the add-on — the server didn't confirm (slow / offline). Please try again."); return; }
+      // server confirmed → NOW apply locally and adopt the fresh array
+      b.swimpass = newSwim; b.towels = newTow; b.extend = newExt; b.total = newTotal; b.addonLog = newLog;
+      b.updatedAt = new Date().toISOString();
+      bookings = data;
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      const parts = [];
+      if(pool) parts.push(`${pool} pool pass${pool > 1 ? "es" : ""}`);
+      if(tow) parts.push(`${tow} towel${tow > 1 ? "s" : ""}`);
+      if(hrs) parts.push(`${hrs} hour${hrs > 1 ? "s" : ""}`);
+      logActivity(`added late add-ons — ${b.haven}: ${parts.join(", ")} (${peso(added)})`);
+      closeAddon();
+      renderToday();
+      alert(`Added ${peso(added)} to the bill. The balance has been updated.`);
+    } finally { _savingAddon = false; }
+  }
+  document.getElementById("addonOverlay").addEventListener("click", e => { if(e.target.id === "addonOverlay") closeAddon(); });
+
+  /* ---------- pool pass sales ---------- */
+  const POOL_KEY = "shph_poolpass_v1";
+  function loadPool(){ try { return JSON.parse(localStorage.getItem(POOL_KEY)) || []; } catch(e){ return []; } }
+  function savePoolData(arr){ try { localStorage.setItem(POOL_KEY, JSON.stringify(arr)); } catch(e){ alert("Couldn't save — storage full."); } }
+  function poolRecalc(){
+    const qty = Number(document.getElementById("poolQty").value) || 0;
+    const price = Number(document.getElementById("poolPrice").value) || 0;
+    document.getElementById("poolTotalInfo").innerHTML = `Total: <strong>${peso(qty * price)}</strong>`;
+  }
+  function openPool(){
+    document.getElementById("poolName").value = "";
+    document.getElementById("poolQty").value = 1;
+    document.getElementById("poolPrice").value = 150;
+    document.getElementById("poolMop").selectedIndex = 0;
+    poolRecalc();
+    document.getElementById("poolOverlay").classList.add("show");
+  }
+  function closePool(){ document.getElementById("poolOverlay").classList.remove("show"); }
+  function savePoolPass(){
+    const qty = Number(document.getElementById("poolQty").value) || 0;
+    const price = Number(document.getElementById("poolPrice").value) || 0;
+    if(qty <= 0){ alert("Enter the number of passes."); return; }
+    const arr = loadPool();
+    arr.push({ qty, price, amount: qty * price, mop: document.getElementById("poolMop").value,
+               name: document.getElementById("poolName").value.trim(), by: currentUser(), at: new Date().toISOString() });
+    savePoolData(arr);
+    logActivity(`sold ${qty} pool pass${qty > 1 ? "es" : ""} — ${peso(qty * price)}`);
+    closePool();
+    renderToday();
+  }
+  function deletePoolPass(idx){
+    const arr = loadPool();
+    if(idx < 0 || idx >= arr.length) return;
+    if(!confirm(`Delete this pool pass sale of ${peso(arr[idx].amount)}?`)) return;
+    const removed = arr.splice(idx, 1)[0];
+    savePoolData(arr);
+    logActivity(`deleted pool pass sale — ${peso(removed.amount)}`);
+    renderToday();
+  }
+  function renderPool(start, end){
+    const all = loadPool();
+    // index map so delete targets the right entry after filtering
+    const rows = all.map((p, i) => ({ p, i })).filter(({ p }) => { const d = iso(new Date(p.at)); return d >= start && d < end; });
+    const qtyTotal = rows.reduce((s, { p }) => s + (Number(p.qty) || 0), 0);
+    const amtTotal = rows.reduce((s, { p }) => s + (Number(p.amount) || 0), 0);
+    const scopeEl = document.getElementById("poolScope");
+    if(scopeEl) scopeEl.textContent = "— sold this period";
+    document.getElementById("poolCards").innerHTML =
+      `<div class="card"><h3>Passes sold</h3><div class="number"><svg class="addon-ico" viewBox="0 0 24 24" style="width:22px;height:22px;vertical-align:-2px"><path d="M2 16c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M2 20c1.5 0 1.5 1 3 1s1.5-1 3-1 1.5 1 3 1 1.5-1 3-1 1.5 1 3 1 1.5-1 3-1"/><path d="M8 13V6a2 2 0 0 1 4 0"/></svg> ${qtyTotal}</div></div>` +
+      `<div class="card"><h3>Pool pass income</h3><div class="number money">${peso(amtTotal)}</div></div>`;
+    document.getElementById("poolBody").innerHTML = rows.length ? rows.map(({ p, i }) => `
+        <tr>
+          <td>${new Date(p.at).toLocaleTimeString("en-PH", { hour:"numeric", minute:"2-digit" })}</td>
+          <td>${p.name ? escTxt(p.name) : '<span class="muted">Walk-in</span>'}</td>
+          <td>${p.qty}</td>
+          <td>${p.mop}</td>
+          <td>${peso(p.amount)}</td>
+          <td>${p.by || "—"}</td>
+          <td><span class="edit-pay" style="color:#c0283d;" onclick="deletePoolPass(${i})">Delete</span></td>
+        </tr>`).join("") : `<tr><td colspan="7" class="empty">No pool passes sold this period.</td></tr>`;
+  }
+  function escTxt(s){ return String(s).replace(/[&<>"]/g, c => ({ "&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;" }[c])); }
+
+  /* ---------- add booking (saves to the shared Calendar/Bookings data) ---------- */
+  const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","Casa Bienca"];
+  const PRICING = { stay6:999, stay10:1599, stay21Weekday:1799, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
+    towel:50, extendPerHr:150, deposit:1000, baseIncludedPax:2, addPax:300, addPaxMinAge:5, maxPax:5, maxAdults:4, maxKids:2, kidMaxAge:13 };
+  const STAY_OPTIONS = [[6,"6 hrs — ₱999"],[10,"10 hrs — ₱1,599"],[21,"21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"]];
+
+  function billablePax(g){ return (g||[]).filter(x => x.age != null && Number(x.age) >= PRICING.addPaxMinAge).length; }
+  function addPaxFee(g){ return Math.max(0, billablePax(g) - PRICING.baseIncludedPax) * PRICING.addPax; }
+  function lastName(name){ const p = (name||"").trim().split(/\s+/); return p.length ? p[p.length-1].toLowerCase() : ""; }
+  function baseRate(stayHours, checkinIso){
+    stayHours = Number(stayHours);
+    if(stayHours === 6) return PRICING.stay6;
+    if(stayHours === 10) return PRICING.stay10;
+    if(stayHours === 21){ const wd = new Date(checkinIso + "T00:00:00").getDay(); return (wd === 5 || wd === 6) ? PRICING.stay21Weekend : PRICING.stay21Weekday; }
+    return 0;
+  }
+  function computeTotal(b){
+    const base = baseRate(b.stayHours, b.checkin);
+    const pax  = addPaxFee(b.guests);
+    const swim = (Number(b.swimpass) || 0) * (b.holiday ? PRICING.swimHoliday : PRICING.swimRegular);
+    const tow  = (Number(b.towels) || 0) * PRICING.towel;
+    const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
+    return base + pax + swim + tow + ext + dep;
+  }
+  function findConflict(cand, excludeId){
+    const cs = cand.checkin, ce = endExcl(cand);
+    return bookings.find(b => {
+      if(b.id === excludeId) return false;
+      if(b.cancelled) return false;   // cancelled → haven is free
+      if(b.haven !== cand.haven) return false;
+      const overlap = cs < endExcl(b) && b.checkin < ce;
+      if(!overlap) return false;
+      if(Number(b.stayHours) !== 6 || Number(cand.stayHours) !== 6) return true;
+      return b.slot === cand.slot;
+    }) || null;
+  }
+  function dashCheckinMin(timeStr){ const m = parseTimeMin(timeStr); if(m == null) return 480; return m === 0 ? 1440 : m; }
+
+  function aFillCheckinTimes(){
+    let html = ""; for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    html += `<option value="__custom__">Custom time…</option>`;
+    document.getElementById("a_checkinTime").innerHTML = html;
+  }
+  // toggle the free time input when "Custom time…" is picked
+  function aTimeSelChange(){
+    const custom = document.getElementById("a_checkinTimeCustom");
+    custom.style.display = document.getElementById("a_checkinTime").value === "__custom__" ? "block" : "none";
+    aRecompute();
+  }
+  // the effective check-in time string (handles the custom HH:MM input)
+  function aCheckinTimeValue(){
+    const sel = document.getElementById("a_checkinTime");
+    if(sel.value === "__custom__"){
+      const v = document.getElementById("a_checkinTimeCustom").value; // "HH:MM" 24h
+      if(!v) return "8:00 AM";
+      const [h, m] = v.split(":").map(Number);
+      return minToTime(h * 60 + m);
+    }
+    return sel.value;
+  }
+  function aUpdateStayOptions(keep){
+    const sel = document.getElementById("a_stay");
+    const ci = document.getElementById("a_checkin").value;
+    const wd = ci ? new Date(ci + "T00:00:00").getDay() : 1;
+    const opts = (wd === 6) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
+    const want = String(keep != null ? keep : sel.value);
+    sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
+    sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
+  }
+  function aGuestRow(g){
+    g = g || { name:"", age:"" };
+    const age = (g.age !== "" && g.age != null) ? g.age : "";
+    const nm = (g.name || "").trim();
+    const sp = nm.lastIndexOf(" ");
+    const first = sp > 0 ? nm.slice(0, sp) : nm;
+    const last  = sp > 0 ? nm.slice(sp + 1) : "";
+    const esc = s => String(s).replace(/"/g, "&quot;");
+    return `<div class="guest-row">
+      <input class="gfirst" placeholder="First name" value="${esc(first)}">
+      <input class="glast" placeholder="Last name" value="${esc(last)}">
+      <input class="gage" type="number" min="0" placeholder="Age" value="${age}">
+      <button type="button" class="gdel" onclick="this.parentNode.remove(); aRecalc();">×</button>
+    </div>`;
+  }
+  function aBindGuestInputs(){ document.querySelectorAll("#aGuestList input").forEach(inp => { inp.oninput = aRecalc; }); }
+  function aRenderGuests(list){
+    document.getElementById("aGuestList").innerHTML = (list && list.length ? list : [{name:"",age:""}]).map(aGuestRow).join("");
+    aBindGuestInputs();
+  }
+  function aAddGuest(){ document.getElementById("aGuestList").insertAdjacentHTML("beforeend", aGuestRow()); aBindGuestInputs(); }
+  function aReadGuests(){
+    return [...document.querySelectorAll("#aGuestList .guest-row")].map(r => {
+      const first = (r.querySelector(".gfirst").value || "").trim();
+      const last  = (r.querySelector(".glast").value || "").trim();
+      return {
+        name: (first + " " + last).trim(),
+        age: r.querySelector(".gage").value === "" ? null : Number(r.querySelector(".gage").value)
+      };
+    }).filter(g => g.name !== "");
+  }
+  function aRecompute(){
+    const ci = document.getElementById("a_checkin").value;
+    const t = aCheckinTimeValue();
+    const hours = Number(document.getElementById("a_stay").value) || 0;
+    const ext = Number(document.getElementById("a_extend").value) || 0;
+    if(ci && t){
+      const total = dashCheckinMin(t) + (hours + ext) * 60;
+      const co = addDays(new Date(ci + "T00:00:00"), Math.floor(total / 1440));
+      document.getElementById("a_checkout").value = iso(co);
+      document.getElementById("a_checkoutTime").value = minToTime(total);
+    }
+    aRecalc();
+  }
+  function aOnCheckinChange(){ aUpdateStayOptions(); aRecompute(); }
+  function aRecalc(){
+    const b = {
+      checkin: document.getElementById("a_checkin").value,
+      stayHours: Number(document.getElementById("a_stay").value),
+      guests: aReadGuests(),
+      swimpass: Number(document.getElementById("a_swimpass").value) || 0,
+      towels: Number(document.getElementById("a_towels").value) || 0,
+      extend: Number(document.getElementById("a_extend").value) || 0,
+      holiday: document.getElementById("a_holiday").checked,
+      deposit: Number(document.getElementById("a_deposit").value) || 0
+    };
+    const total = computeTotal(b);
+    document.getElementById("a_total").value = total;
+    const down = Number(document.getElementById("a_down").value) || 0;
+    document.getElementById("a_balance").value = peso(Math.max(0, total - down));
+    const base = baseRate(b.stayHours, b.checkin);
+    const swimRate = b.holiday ? PRICING.swimHoliday : PRICING.swimRegular;
+    document.getElementById("a_breakdown").innerHTML =
+      `Base for 2 pax (${b.stayHours}h): ${peso(base)} · Extra pax: ${peso(addPaxFee(b.guests))}` +
+      ` · Swimpass ${b.swimpass}×${peso(swimRate)}: ${peso(b.swimpass*swimRate)}` +
+      ` · Towels ${b.towels}×₱50: ${peso(b.towels*PRICING.towel)}` +
+      ` · Extend ${b.extend}h×₱150: ${peso(b.extend*PRICING.extendPerHr)} · Deposit: ${peso(b.deposit)}`;
+  }
+  function openAdd(){
+    if(!canAddBooking()){ alert("Only an administrator or CSR can add a booking."); return; }
+    // Use the ONE unified Add Booking modal that lives on the dashboard, then
+    // come straight back to Today's Booking once it's saved or cancelled.
+    try{
+      localStorage.setItem("shph_open_add", "1");
+      localStorage.setItem("shph_add_return", "todaysbooking.html");
+    }catch(e){}
+    window.location.href = "/dashboard.html";
+  }
+  function closeAdd(){ document.getElementById("addOverlay").classList.remove("show"); }
+  async function saveNewBooking(){
+    bookings = loadBookings();
+    const guests = aReadGuests();
+    const checkin = document.getElementById("a_checkin").value;
+    const checkout = document.getElementById("a_checkout").value;
+    if(guests.length === 0){ alert("Please enter at least one guest name."); return; }
+    for(let i=0;i<guests.length;i++){ const g = guests[i]; if(g.age == null || isNaN(g.age) || g.age < 0){ alert(`Please enter a valid age for ${g.name || ("guest "+(i+1))}.`); return; } }
+    if(guests[0].age < 18){ alert("The first guest (primary booker) must be 18 years old and above."); return; }
+    if(guests.length >= 2 && guests[1].age < 18 && lastName(guests[1].name) !== lastName(guests[0].name)){ alert("The second guest is a minor and must be a family member (same last name) of the first guest."); return; }
+    const kids = guests.filter(g => g.age <= PRICING.kidMaxAge).length;
+    const adults = guests.length - kids;
+    if(guests.length > PRICING.maxPax){ alert(`Maximum of ${PRICING.maxPax} pax per unit.`); return; }
+    if(adults > PRICING.maxAdults){ alert(`Maximum of ${PRICING.maxAdults} adults per unit.`); return; }
+    if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
+    if(!checkin || !checkout || checkout < checkin){ alert("Please enter a valid check-in and check-out date."); return; }
+    const stayHours = Number(document.getElementById("a_stay").value);
+    if(new Date(checkin + "T00:00:00").getDay() === 6 && stayHours !== 21){ alert("Saturday check-ins are 21 hours only."); return; }
+    const checkinTime = aCheckinTimeValue();
+    const data = {
+      haven: document.getElementById("a_haven").value,
+      guests, contact: document.getElementById("a_contact").value.trim(),
+      checkin, checkout, stayHours, checkinTime,
+      slot: stayHours === 6 ? (dashCheckinMin(checkinTime) <= 720 ? "morning" : "evening") : null,
+      swimpass: Number(document.getElementById("a_swimpass").value) || 0,
+      towels: Number(document.getElementById("a_towels").value) || 0,
+      extend: Number(document.getElementById("a_extend").value) || 0,
+      holiday: document.getElementById("a_holiday").checked,
+      deposit: Number(document.getElementById("a_deposit").value) || 0,
+      method: document.getElementById("a_method").value,
+      downpayment: Number(document.getElementById("a_down").value) || 0,
+      notes: document.getElementById("a_notes").value.trim()
+    };
+    data.total = computeTotal(data);
+    if(!data.haven){ alert("Please choose a haven."); return; }
+    const clash = findConflict(data, null);
+    if(clash){ alert(`${data.haven} is already booked for those dates by ${(clash.guests && clash.guests[0] && clash.guests[0].name) || "another guest"}.`); return; }
+    if(_savingNewBooking) return;   // block double-click (a 2nd click would create a duplicate booking)
+    _savingNewBooking = true;
+    try{
+      // unique across browsers (Math.max+1 would let two concurrent creators collide and overwrite)
+      const newId = Date.now() * 1000 + Math.floor(Math.random() * 1000);
+      const rec = { id:newId, ...data };
+      // PER-RECORD create — inserts only this booking on the server (can't overwrite the rest)
+      let ok = false;
+      try{ const res = await fetch("/api/list/" + encodeURIComponent(KEY), { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ upsert: rec }) }); ok = res.ok; }catch(e){}
+      if(!ok){ alert("⚠️ The booking was NOT saved — the server didn't confirm (slow / offline). Please try again."); return; }
+      bookings.push(rec);
+      try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
+      const gName = (data.guests[0] && data.guests[0].name) || "";
+      logActivity(`added booking — ${data.haven} (${gName})`);
+      closeAdd();
+      renderToday();
+      alert("Booking saved. It now appears in Calendar/Bookings.");
+    } finally { _savingNewBooking = false; }
+  }
+  let _savingNewBooking = false;
+  document.getElementById("addOverlay").addEventListener("click", e => { if(e.target.id === "addOverlay") closeAdd(); });
+
+  document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
+  applyPerms();
+  // restore the last-selected view (Yesterday/Today/Tomorrow/Week/Month) across refreshes
+  (function restoreView(){
+    const saved = localStorage.getItem("shph_today_view");
+    const valid = ["yesterday","today","tomorrow","week","month","custom"];
+    if(saved && valid.includes(saved)) currentView = saved;
+    if(currentView === "custom"){
+      try{ const c = JSON.parse(localStorage.getItem("shph_today_custom") || "null"); if(c && c.f && c.t){ customStart = c.f; customEnd = c.t; } else { currentView = "today"; } }catch(e){ currentView = "today"; }
+    }
+    if(currentView === "custom" && !IS_ADMIN) currentView = "today";   // range picker is admin-only
+    document.querySelectorAll(".view-tab").forEach(t => t.classList.toggle("active", t.dataset.view === currentView));
+    // show the admin-only date range picker
+    if(IS_ADMIN){
+      const r = document.getElementById("tbRangeWrap");
+      if(r) r.style.display = "inline-block";
+      if(currentView === "custom" && customStart){
+        const lbl = document.getElementById("tbRangeBtnLabel");
+        if(lbl) lbl.textContent = fmt(customStart) + (customStart === customEnd ? "" : " – " + fmt(customEnd));
+      }
+    }
+  })();
+  renderToday();
+  renderTodayLog();   // admin-only activity log below the lists
+
+  // keep this page in sync when bookings are changed in another tab (e.g. the dashboard)
+  window.addEventListener("storage", e => {
+    // another tab/device changed the bookings → RELOAD them (never keep a stale list in memory
+    // that a later save would push back over newer data) and reset the change baseline.
+    if(e.key === KEY){ bookings = loadBookings(); _seedBkSig(bookings); renderToday(); }
+    if(e.key === "shph_activity_log") renderTodayLog();
+  });
+
+  /* ---- premium hero: live greeting + clock, real "today" arrivals/checkouts ---- */
+  (function(){
+    var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var two = function(n){ return String(n).padStart(2,'0'); };
+    function heroTick(){
+      var now = new Date();
+      var h = now.getHours();
+      var greet = h < 12 ? 'Good Morning' : (h < 18 ? 'Good Afternoon' : 'Good Evening');
+      var name = (typeof currentUser === 'function' ? currentUser() : 'Nicole') || 'Nicole';
+      var first = String(name).trim().split(/\s+/)[0] || 'Nicole';
+      var set = function(id, v){ var el = document.getElementById(id); if(el) el.textContent = v; };
+      set('nhGreeting', greet + ', ' + first + '!');
+      set('nhDayName', DAYS[now.getDay()]);
+      set('nhDate', DAYS[now.getDay()] + ', ' + MONTHS[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear());
+      var hr = now.getHours(), ap = hr >= 12 ? 'PM' : 'AM'; hr = hr % 12; if(hr === 0) hr = 12;
+      set('nhClock', hr + ':' + two(now.getMinutes()) + ' ' + ap);
+      // real arrivals / checkouts for TODAY (reuses this page's own live data + helpers)
+      try{
+        if(typeof loadBookings === 'function' && typeof todayInfo === 'function' && typeof iso === 'function' && typeof today === 'function'){
+          var t = iso(today()), arr = 0, dep = 0;
+          loadBookings().forEach(function(b){ var i = todayInfo(b, t); if(i.arrives) arr++; if(i.departs) dep++; });
+          set('nhSub', 'You have ' + arr + ' arrival' + (arr === 1 ? '' : 's') + ' and ' + dep + ' checkout' + (dep === 1 ? '' : 's') + ' today.');
+        }
+      }catch(e){}
+      var av = document.getElementById('hvAvatar'); if(av) av.textContent = (first.charAt(0) || 'N').toUpperCase();
+    }
+    heroTick();
+    setInterval(heroTick, 1000);
+  })();
+</script>
+</body>
+</html>
