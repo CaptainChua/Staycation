@@ -67,9 +67,44 @@
 
         <button onclick="login()">Login</button>
 
+        <div style="margin-top:16px; text-align:center;">
+            <a href="#" onclick="recoverAdmin(); return false;" style="font-size:13px; color:#8a5a7a; text-decoration:underline; cursor:pointer;">Locked out? Reset admin access</a>
+        </div>
+
     </div>
 
 <script>
+
+// Emergency recovery: reset the administrator's password to 1234 so a locked-out owner can get
+// back in. Keeps every user and all bookings — only the admin password is changed. If no admin
+// exists on the server it creates the default one. Tells the owner exactly which username to use.
+async function recoverAdmin(){
+    if(!confirm("Reset the ADMIN password to 1234?\n\nThis keeps all users and bookings — it only changes the administrator's password so you can log back in.")) return;
+    try{
+        let users = [];
+        try{
+            const res = await fetch("/api/kv/shph_users", { cache: "no-store" });
+            if(res.ok){ const j = await res.json(); if(Array.isArray(j)) users = j; }
+        }catch(e){ /* fall through to create */ }
+        let admin = users.find(u => u && u.admin);
+        if(!admin){
+            const nextId = users.reduce((m, u) => Math.max(m, Number(u.id) || 0), 0) + 1;
+            admin = { id: nextId, name: "Admin", password: "1234", admin: true, perms: [] };
+            users.push(admin);
+        }
+        admin.password = "1234";
+        try{ localStorage.setItem("shph_users", JSON.stringify(users)); }catch(e){}
+        const put = await fetch("/api/kv/shph_users", {
+            method: "PUT", headers: { "Content-Type": "application/json" }, body: JSON.stringify(users)
+        });
+        if(!put.ok) throw new Error("server write failed (HTTP " + put.status + ")");
+        document.getElementById("username").value = admin.name;
+        document.getElementById("password").value = "1234";
+        alert("✅ Admin access restored.\n\nUsername: " + admin.name + "\nPassword: 1234\n\n(I've filled them in — just click Login. You can change the password later under Users.)");
+    }catch(e){
+        alert("Reset failed: " + e.message + "\n\nPlease tell me this exact message and I'll fix it.");
+    }
+}
 
 async function login(){
 
