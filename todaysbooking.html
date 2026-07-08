@@ -5,6 +5,17 @@
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>Today's Booking — Staycation Haven PH</title>
 <link rel="icon" href="images/logo.png">
+<script>
+  // Nicole has her own premium Today's Booking — send her there automatically so she always
+  // lands on the new look, however she navigated here. Everyone else keeps this shared page.
+  (function(){
+    try{
+      var u = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
+      var p = location.pathname.replace(/\/+$/, "").toLowerCase();
+      if(u === "nicole" && p.indexOf("nicole-") === -1){ location.replace("/nicole-todaysbooking"); }
+    }catch(e){}
+  })();
+</script>
 <style>
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f; background:#f1f2f4; }
