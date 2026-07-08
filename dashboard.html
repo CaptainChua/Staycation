@@ -12491,7 +12491,13 @@ async function saveUsersToServer(arr, attempt){
 function currentUserObj(){
     const name = (localStorage.getItem("shph_current_user") || "").trim();
     if(!name) return null;
-    return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
+    // `users` is declared further down the script. An early render (e.g. renderTable during the
+    // initial renderAll) can reach here BEFORE that line runs — accessing a `let` in its temporal
+    // dead zone throws and would crash the whole page. Guard it: treat "not ready yet" as no user;
+    // the authoritative render happens again after users initializes.
+    let _u; try { _u = users; } catch(e){ return null; }
+    if(!Array.isArray(_u)) return null;
+    return _u.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
 }
 // the account a branded shortcut URL belongs to (e.g. "nicole" on /nicole-board), or null.
 // Used to LOCK those URLs to their owner — only that user (or an admin) may open them.
