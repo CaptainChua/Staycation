@@ -108,6 +108,36 @@ apiRouter.put("/kv/:key", async (req, res) => {
   }
 });
 
+// ---- website visit counter — records a unique visit (deduped once/day per browser, client-side) ----
+apiRouter.post("/visit", async (req, res) => {
+  try {
+    let v = await store.readFreshKey("shph_visits");
+    if (!v || typeof v !== "object" || Array.isArray(v)) v = { total: 0, days: {} };
+    if (!v.days || typeof v.days !== "object") v.days = {};
+    const day = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);   // Philippine calendar day (UTC+8)
+    v.total = (Number(v.total) || 0) + 1;
+    v.days[day] = (Number(v.days[day]) || 0) + 1;
+    const keep = Object.keys(v.days).sort().slice(-180);   // bound the daily history
+    const trimmed = {}; for (const d of keep) trimmed[d] = v.days[d];
+    v.days = trimmed;
+    await store.set("shph_visits", v);
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: true });
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+apiRouter.get("/visits", async (req, res) => {
+  try {
+    let v = await store.readFreshKey("shph_visits");
+    if (!v || typeof v !== "object" || Array.isArray(v)) v = { total: 0, days: {} };
+    res.set("Cache-Control", "no-store");
+    res.json({ total: Number(v.total) || 0, days: v.days || {} });
+  } catch (e) {
+    res.status(500).json({ error: e.message });
+  }
+});
+
 // store ONE photo and return a tiny /img/<id> link. The browser calls this the moment a
 // photo is attached, then saves only the link inside the booking — so the bookings payload
 // stays small and never overflows the host's request-size limit (the cause of lost saves).

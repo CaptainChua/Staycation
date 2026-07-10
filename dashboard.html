@@ -1638,6 +1638,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
     </div>
   </div>
 
+  <div class="rcard" id="visitsCard">
+    <h3>Website visits <span class="muted" style="font-weight:400; font-size:13px;">— unique visitors, counted once per person per day</span></h3>
+    <div class="cards" id="visitsCards" style="margin-top:14px;"><div class="muted" style="padding:6px 2px;">Loading…</div></div>
+  </div>
+
   <div class="rcard">
     <h3>Hero section</h3>
     <div class="wf">
@@ -7531,6 +7536,29 @@ function logout(){
 }
 
 /* ---------- sidebar navigation ---------- */
+// fetch + show the website visit counts (unique visitors/day) on the Website page
+async function renderWebsiteVisits(){
+    const el = document.getElementById("visitsCards");
+    if(!el) return;
+    el.innerHTML = '<div class="muted" style="padding:6px 2px;">Loading…</div>';
+    try{
+        const r = await fetch("/api/visits", { cache: "no-store" });
+        const v = await r.json();
+        const days = (v && v.days) || {};
+        const todayIso = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10), monthPfx = todayIso.slice(0, 7);   // PH day (UTC+8)
+        const todayN = Number(days[todayIso]) || 0;
+        let monthN = 0;
+        Object.keys(days).forEach(d => { if(d.slice(0, 7) === monthPfx) monthN += Number(days[d]) || 0; });
+        const fmtN = n => Number(n || 0).toLocaleString("en-PH");
+        const globe = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg>';
+        const card = (label, val, sub, chip) => `<div class="card"><div class="card-top"><span class="card-label">${label}</span><span class="card-ico ${chip}">${globe}</span></div><div class="number">${fmtN(val)}</div><div class="card-sub">${sub}</div></div>`;
+        el.innerHTML = card("Total visits", v.total, "since launch", "ico-gold")
+            + card("Today", todayN, fmt(todayIso), "ico-green")
+            + card("This month", monthN, "", "ico-terra");
+    }catch(e){
+        el.innerHTML = '<div class="muted" style="padding:6px 2px;">Could not load visits — try again.</div>';
+    }
+}
 function showPage(page){
     if(!pageAllowed(page)) return;   // access control
     document.querySelectorAll(".page").forEach(p =>
@@ -7538,6 +7566,7 @@ function showPage(page){
     document.querySelectorAll(".sidebar .nav-item").forEach(n =>
         n.classList.toggle("active", n.dataset.page === page));
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
+    if(page === "website") renderWebsiteVisits();
     // breadcrumb in the top bar
     const CRUMB = {
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
