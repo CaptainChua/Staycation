@@ -22,7 +22,8 @@
   .wrap{ max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
 
   /* sidebar — matches dashboard.html */
-  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; }
+  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; scrollbar-width:none; -ms-overflow-style:none; }
+  .sidebar::-webkit-scrollbar{ width:0; height:0; display:none; }   /* hide the scrollbar (still scrollable) */
   .sidebar .brand{ font-size:16px; font-weight:bold; padding:0 22px 22px; border-bottom:1px solid #2c2c2c; margin-bottom:14px; line-height:1.3; }
   .sidebar .brand-logo{ height:34px; vertical-align:middle; margin-right:6px; }
   .sidebar .nav-item{ display:flex; align-items:center; gap:12px; padding:13px 22px; font-size:14px; color:#cfcfcf; cursor:pointer; border-left:3px solid transparent; transition:all .15s ease; }
@@ -464,15 +465,15 @@
   <div class="nav-item" data-page="board" onclick="goPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
 
   <div class="nav-group">Main</div>
-  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
+  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
   <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
   <div class="nav-item" data-page="guestform" onclick="goPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span> Guest Form</div>
-  <div class="nav-item" data-page="collections" onclick="goPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3z"/><path d="M3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports</div>
+  <div class="nav-item" data-page="collections" onclick="goPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3z"/><path d="M3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports <span class="nav-badge" id="collectionsBadge"></span></div>
   <div class="nav-item" data-page="website" onclick="goPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
 
   <div class="nav-group">Front Desk</div>
-  <div class="nav-item" data-page="approval" onclick="goPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
-  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
+  <div class="nav-item" data-page="approval" onclick="goPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval</div>
+  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
   <div class="nav-item" data-page="violations" onclick="goPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
 
   <div class="nav-group">Partners</div>
@@ -1312,10 +1313,22 @@
       : '<p class="muted">No havens.</p>';
   }
 
+  // a security deposit is returnable the DAY AFTER check-out (matches the dashboard's deposit page)
+  function depReturnDate(b){
+    if(!b || !b.checkout) return b && b.checkout;
+    return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
+  }
   function renderToday(){
     bookings = loadBookings();
     const _ab = document.getElementById("approvalBadge");
     if(_ab){ const n = bookings.filter(b => b.approved !== true).length; _ab.textContent = n ? String(n) : ""; }
+    // sidebar count badges — arrivals today, payments still to verify, deposits due to return (match the dashboard)
+    const _tb = document.getElementById("todayBadge");
+    if(_tb){ const _t = iso(today()); const n = bookings.filter(b => b && !b.cancelled && !b.deleted && b.checkin === _t).length; _tb.textContent = n ? String(n) : ""; }
+    const _cb = document.getElementById("collectionsBadge");
+    if(_cb){ let n = 0; bookings.forEach(b => { if(!b || b.deleted) return; if(b.cancelled && b.dpRefunded) return; if((Number(b.downpayment)||0) > 0 && !b.dpVerified) n++; (b.payments || []).forEach(p => { if((Number(p.amount)||0) && !p.verified) n++; }); }); _cb.textContent = n ? String(n) : ""; }
+    const _db = document.getElementById("depositBadge");
+    if(_db){ const _t = iso(today()); const n = bookings.filter(b => { const rd = depReturnDate(b); return b && !b.cancelled && !b.depositReturned && Number(b.deposit||0) > 0 && rd && rd <= _t; }).length; _db.textContent = n ? String(n) : ""; }
     const _pab = document.getElementById("paymentApprovalBadge");
     if(_pab){
       const todayIso = iso(today());
