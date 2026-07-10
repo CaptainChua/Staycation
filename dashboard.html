@@ -4259,7 +4259,7 @@ function todayRow(b, amountCol){
     const st = statusOf(b);
     return `<tr>
         <td><strong>${b.haven}</strong></td>
-        <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
+        <td>${guestSummary(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}<br><span class="muted">${b.contact||""}</span></td>
         <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
         <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
         <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
