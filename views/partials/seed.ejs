@@ -2,3 +2,17 @@
     localStorage-based page code working against the shared backend. %>
 <script>window.__SEED__ = <%- JSON.stringify(seed).replace(/</g, "\\u003c") %>;</script>
 <script src="/js/seed-bridge.js"></script>
+<script>
+/* Count a website visit once per browser per DAY — public guest pages only (not the dashboard). */
+(function(){
+  try{
+    var p = location.pathname.replace(/\/+$/, "").toLowerCase();
+    var PUB = ["", "/index", "/index.html", "/havens", "/havens.html", "/booknow", "/booknow.html", "/payment", "/payment.html"];
+    if(PUB.indexOf(p) === -1) return;
+    var k = "shph_visited_" + new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10);   // PH day (UTC+8)
+    if(localStorage.getItem(k)) return;      // already counted today in this browser
+    localStorage.setItem(k, "1");
+    fetch("/api/visit", { method: "POST", keepalive: true }).catch(function(){});
+  }catch(e){}
+})();
+</script>
