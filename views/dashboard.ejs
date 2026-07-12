@@ -728,6 +728,10 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .proof-del:hover{ text-decoration:underline; }
 .proof-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:13px; color:#6f5b46; background:#faf6ef; border:1px solid #efe6d8; border-radius:11px; padding:12px 14px; margin-bottom:10px; line-height:1.5; }
 .proof-meta strong{ color:#33291f; }
+.proof-datewrap{ margin:0 0 12px; }
+.proof-dl{ display:block; font-size:11px; color:#a3937e; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin:0 0 5px; }
+.proof-date{ font-family:inherit; font-size:13px; color:#33291f; background:#fff; border:1px solid #e6dccb; border-radius:10px; padding:9px 11px; }
+.proof-date:focus{ outline:none; border-color:var(--hv-terra); }
 .proof-img{ max-width:200px; max-height:190px; width:auto; height:auto; object-fit:contain; border-radius:11px; border:1px solid #efe6d8; display:block; margin-bottom:10px; cursor:zoom-in; transition:transform .1s; background:#faf6ef; }
 .proof-img:hover{ transform:scale(1.02); }
 /* proof image with a delete (✕) control in the corner */
@@ -3339,6 +3343,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="proof-block">
                 <h3>Add-Ons <span class="muted" style="font-weight:400;font-size:13px;">— Swimpass &amp; Towels</span></h3>
                 <div class="proof-meta" id="addonMeta"></div>
+                <div class="proof-datewrap"><label class="proof-dl">Date paid</label><input type="date" id="addonDate" class="proof-date"></div>
                 <span class="proof-thumb" id="addonProofThumb" style="display:none;">
                     <img id="addonProofImg" class="proof-img" alt="add-ons proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('addon')">✕</button>
@@ -3353,6 +3358,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="proof-block">
                 <h3>Additional Hours <span class="muted" style="font-weight:400;font-size:13px;">— Extend</span></h3>
                 <div class="proof-meta" id="extendMeta"></div>
+                <div class="proof-datewrap"><label class="proof-dl">Date paid</label><input type="date" id="extendDate" class="proof-date"></div>
                 <span class="proof-thumb" id="extendProofThumb" style="display:none;">
                     <img id="extendProofImg" class="proof-img" alt="additional-hours proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('extend')">✕</button>
@@ -3368,6 +3374,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <div>
                     <h3>Resched Fee <span class="muted" style="font-weight:400;font-size:13px;">— Reschedule</span></h3>
                     <div class="proof-meta" id="reschedMeta"></div>
+                    <div class="proof-datewrap" style="margin-bottom:0;"><label class="proof-dl">Date paid</label><input type="date" id="reschedDate" class="proof-date"></div>
                 </div>
                 <span class="proof-thumb" id="reschedProofThumb" style="display:none;">
                     <img id="reschedProofImg" class="proof-img" alt="resched-fee proof" onclick="openProofImg(this.src)">
@@ -7245,6 +7252,11 @@ function renderProofPage(b){
     if(reschedProofData){ rImg.src = reschedProofData; rThumb.style.display = "inline-block"; }
     else { rImg.src = ""; rThumb.style.display = "none"; }
 
+    // "Date paid" per charge (manual channel; saved on Save Booking)
+    document.getElementById("addonDate").value   = (b && b.addonDate)   || "";
+    document.getElementById("extendDate").value  = (b && b.extendDate)  || "";
+    document.getElementById("reschedDate").value = (b && b.reschedDate) || "";
+
     // proof checklist — ticked once each proof photo is attached (manual upload or a collection's photo)
     const _ckEl = document.getElementById("proofChecklist");
     if(_ckEl){
@@ -7490,6 +7502,9 @@ async function saveBooking(){
         addonProof: addonProofData || null,
         extendProof: extendProofData || null,
         reschedProof: reschedProofData || null,
+        addonDate: (document.getElementById("addonDate") || {}).value || null,
+        extendDate: (document.getElementById("extendDate") || {}).value || null,
+        reschedDate: (document.getElementById("reschedDate") || {}).value || null,
         balanceProof: balProofData || null,
         ids: idsData.slice(),
         idOptOut: document.getElementById("f_idOptOut").checked
