@@ -670,6 +670,9 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 /* three-across row (Time of stay · Check-in time · Check-out time) */
 .tsrow{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
 @media (max-width:640px){ .tsrow{ grid-template-columns:1fr; } }
+/* four-across row (Downpayment · Total · Security deposit · Balance) */
+.pricerow{ grid-column:1 / -1; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
+@media (max-width:760px){ .pricerow{ grid-template-columns:1fr 1fr; } }
 .field label{ font-size:12px; color:#666; }
 .field input, .field select, .field textarea{
     padding:10px;
@@ -3106,6 +3109,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div>
         <div id="bkPage1">
         <div class="form-grid">
+            <div class="tsrow">
             <div class="field">
                 <label>Check-in</label>
                 <div class="dp-wrap md-dpwrap">
@@ -3136,6 +3140,18 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     </div>
                 </div>
             </div>
+            <div class="field">
+                <label>Haven</label>
+                <select id="f_haven" onchange="onHavenChange()"></select>
+            </div>
+            </div>
+
+            <div class="field full">
+                <label class="check-label">
+                    <input type="checkbox" id="f_resched" onchange="recalc()">
+                    Reschedule fee <span class="muted">(₱300 — charge when the guest reschedules)</span>
+                </label>
+            </div>
 
             <div class="tsrow">
                 <div class="field">
@@ -3156,16 +3172,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="text" id="f_checkoutTime" readonly>
                 </div>
             </div>
-            <div class="field">
-                <label>Extend hr <span class="muted">(₱150/hr)</span></label>
-                <input type="number" id="f_extend" value="0" min="0" oninput="onExtendChange()">
-            </div>
-
-            <div class="field full">
-                <label>Haven</label>
-                <select id="f_haven" onchange="onHavenChange()"></select>
-            </div>
-
             <div class="field full">
                 <label>Facebook Name</label>
                 <input type="text" id="f_fbName" placeholder="Name on Facebook / Messenger">
@@ -3190,26 +3196,25 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <div class="breakdown">Use this when the guest moves to a <b>different</b> haven during their stay (e.g. Haven 8 on Jun 27–28, then Haven 7 on Jun 28–29). For multiple nights in the <b>same</b> haven, choose <b>Multiple nights</b> in Time of stay instead. Each row is saved as its own overnight booking, priced on its own, and linked to this reservation.</div>
             </div>
 
-            <div class="field">
-                <label>Swimpass qty</label>
-                <input type="number" id="f_swimpass" value="0" min="0" oninput="recalc()">
-            </div>
-            <div class="field">
-                <label>Towels qty <span class="muted">(₱50 each)</span></label>
-                <input type="number" id="f_towels" value="0" min="0" oninput="recalc()">
+            <div class="tsrow">
+                <div class="field">
+                    <label>Swimpass qty</label>
+                    <input type="number" id="f_swimpass" value="0" min="0" oninput="recalc()">
+                </div>
+                <div class="field">
+                    <label>Towels qty <span class="muted">(₱50 each)</span></label>
+                    <input type="number" id="f_towels" value="0" min="0" oninput="recalc()">
+                </div>
+                <div class="field">
+                    <label>Extend hr <span class="muted">(₱150/hr)</span></label>
+                    <input type="number" id="f_extend" value="0" min="0" oninput="onExtendChange()">
+                </div>
             </div>
 
             <div class="field full">
                 <label class="check-label">
                     <input type="checkbox" id="f_holiday" onchange="recalc()">
                     Holiday rate <span class="muted">(swimpass ₱300/pax instead of ₱150)</span>
-                </label>
-            </div>
-
-            <div class="field full">
-                <label class="check-label">
-                    <input type="checkbox" id="f_resched" onchange="recalc()">
-                    Reschedule fee <span class="muted">(₱300 — charge when the guest reschedules)</span>
                 </label>
             </div>
 
@@ -3225,26 +3230,28 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 </select>
             </div>
 
-            <div class="field">
-                <label>Security deposit (₱)</label>
-                <input type="number" id="f_deposit" value="1000" min="0" oninput="recalc()">
-            </div>
-            <div class="field">
-                <label>Downpayment (₱)</label>
-                <input type="number" id="f_down" value="0" min="0" oninput="recalc()">
-            </div>
             <div class="field full">
                 <label>Discount (₱)</label>
                 <button type="button" class="btn secondary" id="f_discountBtn" onclick="showDiscount()">＋ Add discount</button>
                 <input type="number" id="f_discount" value="0" min="0" oninput="recalc()" placeholder="0" style="display:none;">
             </div>
-            <div class="field">
-                <label>Total amount payable (₱) <span class="muted">— auto-calculated</span></label>
-                <input type="number" id="f_total" readonly>
-            </div>
-            <div class="field">
-                <label>Balance upon check-in (₱)</label>
-                <input type="text" id="f_balance" readonly>
+            <div class="pricerow">
+                <div class="field">
+                    <label>Downpayment (₱)</label>
+                    <input type="number" id="f_down" value="0" min="0" oninput="recalc()">
+                </div>
+                <div class="field">
+                    <label>Total amount payable (₱) <span class="muted">— auto</span></label>
+                    <input type="number" id="f_total" readonly>
+                </div>
+                <div class="field">
+                    <label>Security deposit (₱)</label>
+                    <input type="number" id="f_deposit" value="1000" min="0" oninput="recalc()">
+                </div>
+                <div class="field">
+                    <label>Balance upon check-in (₱)</label>
+                    <input type="text" id="f_balance" readonly>
+                </div>
             </div>
             <div class="field full">
                 <div class="breakdown" id="f_breakdown"></div>
