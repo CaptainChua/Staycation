@@ -5,27 +5,15 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
-<title>Today's Booking — Staycation Haven PH</title>
+<title>Nicole · Today's Booking — Staycation Haven PH</title>
 <link rel="icon" href="images/logo.png">
-<script>
-  // Nicole has her own premium Today's Booking — send her there automatically so she always
-  // lands on the new look, however she navigated here. Everyone else keeps this shared page.
-  (function(){
-    try{
-      var u = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
-      var p = location.pathname.replace(/\/+$/, "").toLowerCase();
-      if(u === "nicole" && p.indexOf("nicole-") === -1){ location.replace("/nicole-todaysbooking"); }
-    }catch(e){}
-  })();
-</script>
 <style>
   *{ box-sizing:border-box; }
   body{ margin:0; font-family:"Segoe UI", Arial, sans-serif; color:#1f1f1f; background:#f1f2f4; }
   .wrap{ max-width:1200px; margin:0 auto; padding:24px 20px 60px; }
 
   /* sidebar — matches dashboard.html */
-  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; scrollbar-width:none; -ms-overflow-style:none; }
-  .sidebar::-webkit-scrollbar{ width:0; height:0; display:none; }   /* hide the scrollbar (still scrollable) */
+  .sidebar{ position:fixed; top:0; left:0; width:220px; height:100vh; background:#1a1a1a; color:#fff; padding:24px 0; overflow-y:auto; z-index:30; }
   .sidebar .brand{ font-size:16px; font-weight:bold; padding:0 22px 22px; border-bottom:1px solid #2c2c2c; margin-bottom:14px; line-height:1.3; }
   .sidebar .brand-logo{ height:34px; vertical-align:middle; margin-right:6px; }
   .sidebar .nav-item{ display:flex; align-items:center; gap:12px; padding:13px 22px; font-size:14px; color:#cfcfcf; cursor:pointer; border-left:3px solid transparent; transition:all .15s ease; }
@@ -411,6 +399,103 @@
     .scroll tbody td:nth-child(1){ font-size:14px !important; }
   }
 </style>
+<!-- ===== Nicole premium skin (gold palette + DM Serif headings + hero greeting) ===== -->
+<link href="https://fonts.googleapis.com/css2?family=DM+Serif+Display:ital@0;1&display=swap" rel="stylesheet">
+<style id="nicole-skin">
+  :root{
+    --hv-cream:#f4efe6; --hv-ink:#1c1a17; --hv-muted:#8a8377; --hv-line:#e6ddcd;
+    --hv-terra:#a9842b; --hv-terra-d:#8a6c22; --hv-gold:#caa23f;
+    --hv-sidebar:#1c1a17; --hv-sidebar-2:#2a2620;
+  }
+  body{ background:var(--hv-cream); }
+
+  /* serif display headings */
+  .topbar .title h1, .panel-head h2, .modal h3, .nh-greet, .nh-clock{
+    font-family:'DM Serif Display', Georgia, 'Times New Roman', serif !important; font-weight:400; letter-spacing:0;
+  }
+  .topbar .title h1{ font-size:32px; }
+
+  /* primary CTA → warm terracotta gradient (matches the mockup) */
+  .btn{ background:linear-gradient(180deg,#c06a35,#a5561f); box-shadow:0 8px 18px -10px rgba(160,80,30,.7); }
+  .btn:hover{ background:linear-gradient(180deg,#b45f2c,#98501c); }
+  .btn.secondary, .btn.ghost{ background:#fff; }
+
+  /* softer, more premium cards + panels */
+  .card, .panel{ border-radius:18px; box-shadow:0 18px 40px -34px rgba(80,60,20,.45); }
+  .card{ padding:20px 20px 18px; }
+  .card .number{ font-size:32px; }
+
+  /* the 5th stat card ("Collected today") → dark gold hero card, like the mockup */
+  .cards .card:nth-child(5){ background:linear-gradient(160deg,#1f1d19,#2c281f); border-color:#35301f; color:#fff; }
+  .cards .card:nth-child(5) .card-label{ color:#b9ad92; }
+  .cards .card:nth-child(5) .number{ color:#f0d488; }
+  .cards .card:nth-child(5) .card-sub{ color:#b9ad92; }
+  .cards .card:nth-child(5) .card-ico{ background:rgba(230,197,121,.16); }
+  .cards .card:nth-child(5) .card-ico svg{ stroke:#e6c579; }
+
+  /* sidebar brand + active item */
+  .sidebar .brand img.hv-logo{ background:#fff; border-radius:11px; padding:4px; }
+  .sidebar .brand .hv-brandtext{ font-family:'DM Serif Display',serif; font-size:16px; font-weight:400; }
+  .sidebar .brand .hv-brandtext small{ font-family:'Manrope',sans-serif; letter-spacing:2.5px; color:#a9842b; }
+  .sidebar .nav-item.active{ background:linear-gradient(100deg, rgba(169,132,43,.22), rgba(169,132,43,.05)); box-shadow:inset 0 0 0 1px rgba(169,132,43,.3); }
+  .sidebar .nav-item.active svg{ stroke:#e6c579; }
+  .seg .view-tab.active{ background:var(--hv-ink); }
+
+  /* hero greeting card */
+  .nicole-hero{ display:grid; grid-template-columns:1fr auto; gap:20px; align-items:center;
+    background:linear-gradient(115deg,#1c1a17 0%, #2a2620 55%, #3a3226 100%);
+    border-radius:22px; padding:28px 32px; color:#fff; margin:2px 0 24px; position:relative; overflow:hidden; }
+  .nicole-hero::after{ content:""; position:absolute; right:-40px; top:-60px; width:280px; height:280px;
+    background:radial-gradient(circle, rgba(230,197,121,.20), transparent 68%); pointer-events:none; }
+  .nicole-hero .nh-eyebrow{ color:#e6c579; font-size:12px; letter-spacing:.16em; text-transform:uppercase; font-weight:700; margin-bottom:8px; position:relative; }
+  .nicole-hero .nh-greet{ font-size:38px; line-height:1.05; margin:0 0 8px; color:#fff; position:relative; }
+  .nicole-hero .nh-sub{ color:rgba(255,255,255,.62); font-size:15px; margin:0; max-width:460px; line-height:1.55; position:relative; }
+  .nicole-hero .nh-right{ text-align:right; position:relative; padding-left:20px; border-left:1px solid rgba(255,255,255,.12); }
+  .nicole-hero .nh-clock{ font-size:38px; line-height:1; }
+  .nicole-hero .nh-date{ color:rgba(255,255,255,.6); font-size:14px; margin-top:8px; }
+  @media(max-width:760px){
+    .nicole-hero{ grid-template-columns:1fr; padding:20px; border-radius:18px; margin-top:0; }
+    .nicole-hero .nh-greet{ font-size:26px; }
+    .nicole-hero .nh-right{ border-left:none; padding-left:0; text-align:left; margin-top:14px; display:flex; align-items:baseline; gap:12px; }
+    .nicole-hero .nh-clock{ font-size:26px; }
+  }
+
+  /* ===== compact / professional sizing pass ===== */
+  .wrap{ padding:22px 28px 48px; }
+  .nicole-hero{ padding:24px 30px; margin:0 0 20px; border-radius:18px; }
+  .nicole-hero .nh-eyebrow{ font-size:11px; margin-bottom:6px; letter-spacing:.15em; }
+  .nicole-hero .nh-greet{ font-size:30px; margin-bottom:6px; }
+  .nicole-hero .nh-sub{ font-size:14px; }
+  .nicole-hero .nh-clock{ font-size:32px; }
+  .nicole-hero .nh-date{ font-size:13px; margin-top:6px; }
+  .topbar{ margin:2px 0 15px; }
+  .topbar .title h1{ font-size:21px; }
+  .topbar .title p{ font-size:12.5px; }
+  .cards{ gap:13px; margin-bottom:16px; }
+  .card{ padding:14px 16px 13px; border-radius:13px; box-shadow:0 10px 26px -22px rgba(80,60,20,.4); }
+  .card .card-label{ font-size:10px; letter-spacing:.5px; }
+  .card .card-ico{ width:29px; height:29px; border-radius:9px; }
+  .card .card-ico svg{ width:15px; height:15px; }
+  .card .number{ font-size:23px; margin-top:6px; }
+  .card .card-sub{ font-size:11.5px; margin-top:4px; }
+  .panel{ padding:15px 18px; border-radius:13px; margin-bottom:16px; }
+  .panel-head{ margin-bottom:10px; }
+  .panel-head h2{ font-size:15.5px; }
+  .panel-head h2 .sec-ico svg{ width:16px; height:16px; }
+  .mop-grid{ gap:10px; }
+  .mop-item{ padding:11px 13px; border-radius:11px; }
+  .mop-label{ font-size:11.5px; }
+  .mop-val{ font-size:16px; }
+  .ap-head{ gap:22px; }
+  .ap-tab{ font-size:15px; padding-bottom:7px; }
+  .ap-tab .sec-ico svg{ width:16px; height:16px; }
+  table{ font-size:12.5px; }
+  th{ font-size:10.5px; letter-spacing:.2px; }
+  th, td{ padding:10px 10px; }
+  .seg .view-tab{ padding:7px 13px; font-size:13px; }
+  .btn{ padding:8px 15px; font-size:12.5px; }
+  .appbar{ padding:12px 28px; }
+</style>
 </head>
 <body>
 <div class="m-topbar" id="mTopbar">
@@ -467,43 +552,12 @@
   <div class="nav-item" data-page="board" onclick="goPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
 
   <div class="nav-group">Main</div>
-  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
+  <div class="nav-item active" data-page="today"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking</div>
   <div class="nav-item" data-page="calendar" onclick="goPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
   <div class="nav-item" data-page="guestform" onclick="goPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/></svg></span> Guest Form</div>
-  <div class="nav-item" data-page="collections" onclick="goPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3z"/><path d="M3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports <span class="nav-badge" id="collectionsBadge"></span></div>
-  <div class="nav-item" data-page="website" onclick="goPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
 
   <div class="nav-group">Front Desk</div>
-  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
-  <div class="nav-item" data-page="violations" onclick="goPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
-
-  <div class="nav-group">Partners</div>
-  <div class="nav-item" data-page="partners" onclick="goPage('partners')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.2"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.5a3 3 0 0 1 0 6M21.5 20a6.5 6.5 0 0 0-4.5-6.2"/></svg></span> Partner List</div>
-  <div class="nav-item" data-page="commissions" onclick="goPage('commissions')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M19 5 5 19"/><circle cx="7.5" cy="7.5" r="2.5"/><circle cx="16.5" cy="16.5" r="2.5"/></svg></span> Commissions</div>
-  <div class="nav-item" data-page="partnerbookings" onclick="goPage('partnerbookings')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><circle cx="12" cy="15" r="1.8"/></svg></span> Bookings by Partner</div>
-  <div class="nav-item" data-page="prrooms" onclick="goPage('prrooms')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V8l9-5 9 5v13"/><path d="M3 21h18M9 21v-6h6v6"/><path d="M8 11h.01M16 11h.01"/></svg></span> PR-Rooms</div>
-  <div class="nav-item" data-page="addpartner" onclick="goPage('partners')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M19 8v6M16 11h6"/></svg></span> Add Partner</div>
-  <div class="nav-item" data-page="partnerdash" onclick="window.location.href='/partner-login'" title="Open the partner dashboard (login required)"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="3" width="8" height="8" rx="1.5"/><rect x="13" y="3" width="8" height="5" rx="1.5"/><rect x="13" y="10" width="8" height="11" rx="1.5"/><rect x="3" y="13" width="8" height="8" rx="1.5"/></svg></span> Dashboard</div>
-
-  <div class="nav-group">Property</div>
-  <div class="nav-item" data-page="havens" onclick="goPage('havens')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 21V9l9-6 9 6v12"/><path d="M9 21v-6h6v6"/></svg></span> Havens</div>
-  <div class="nav-item" data-page="booking" onclick="goPage('booking')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3.5 12.5 11 5a2 2 0 0 1 1.4-.6H19a1 1 0 0 1 1 1v6.6a2 2 0 0 1-.6 1.4l-7.5 7.5a2 2 0 0 1-2.8 0l-5.6-5.6a2 2 0 0 1 0-2.8Z"/><circle cx="15.4" cy="8.6" r="1.2"/></svg></span> Rates &amp; Add-ons</div>
-  <div class="nav-item" data-page="cleaners" onclick="goPage('cleaners')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M18.5 3.5 11 11"/><path d="M8.5 11h6.2l-1.1 6.4A3 3 0 0 1 10.7 20H8a3.5 3.5 0 0 1-3.4-4.3c1.6-.2 3-1.4 3.9-3.2Z"/></svg></span> Housekeeping</div>
-  <div class="nav-item" data-page="inventory" onclick="goPage('inventory')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 7v10l9 4 9-4V7"/><path d="M12 11v10"/></svg></span> Inventory</div>
-
-  <div class="nav-group">Finance</div>
-  <div class="nav-item" data-page="finance" onclick="goPage('finance')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="6" width="18" height="12" rx="2"/><circle cx="12" cy="12" r="2.4"/></svg></span> Finance</div>
-  <div class="nav-item" data-page="payments" onclick="goPage('payments')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="5" width="20" height="14" rx="2"/><path d="M2 10h20"/></svg></span> Payments</div>
-  <div class="nav-item" data-page="payroll" onclick="goPage('payroll')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h14v18l-3-2-2 2-2-2-2 2-3-2V3Z"/><path d="M9 8h6M9 12h6"/></svg></span> Payroll</div>
-  <div class="nav-item" data-page="bills" onclick="goPage('bills')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="2" y="6" width="20" height="12" rx="2"/><circle cx="12" cy="12" r="2.5"/><path d="M6 12h.01M18 12h.01"/></svg></span> Bills</div>
-  <div class="nav-item" data-page="expenses" onclick="goPage('expenses')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 7h18v12H3z"/><path d="M3 11h18M7 15h4"/></svg></span> Expenses</div>
-  <div class="nav-item" data-page="analytics" onclick="goPage('analytics')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M4 20V4M4 20h16"/><path d="M8 17v-5M13 17V8M18 17v-9"/></svg></span> Analytics</div>
-
-  <div class="nav-group">Team</div>
-  <div class="nav-item" data-page="users" onclick="goPage('users')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="9" cy="8" r="3.5"/><path d="M2.5 20a6.5 6.5 0 0 1 13 0"/><path d="M16 5.2a3.5 3.5 0 0 1 0 6.6M21.5 20a6.5 6.5 0 0 0-5-6.3"/></svg></span> Users</div>
-  <div class="nav-item" data-page="employees" onclick="goPage('employees')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="8" r="4"/><path d="M4 20a8 8 0 0 1 16 0"/></svg></span> Employees</div>
-  <div class="nav-item" data-page="assist" onclick="goPage('assist')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M9.5 9.5a2.5 2.5 0 0 1 4 1.8c0 1.7-2.5 1.7-2.5 3.7M12 18h.01"/></svg></span> Assist</div>
-  <div class="nav-item" data-page="log" onclick="goPage('log')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 4h11l3 3v13H5z"/><path d="M9 9h5M9 13h6M9 17h4"/></svg></span> Log</div>
+  <div class="nav-item" data-page="deposit" onclick="goPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit</div>
 </div>
 
 <div class="main">
@@ -520,6 +574,18 @@
   </div>
 
 <div class="wrap">
+  <!-- premium greeting hero (live clock) -->
+  <div class="nicole-hero">
+    <div class="nh-left">
+      <div class="nh-eyebrow" id="nhDayName"></div>
+      <h1 class="nh-greet" id="nhGreeting">Welcome, Nicole!</h1>
+      <p class="nh-sub" id="nhSub"></p>
+    </div>
+    <div class="nh-right">
+      <div class="nh-clock" id="nhClock">—</div>
+      <div class="nh-date" id="nhDate"></div>
+    </div>
+  </div>
   <div class="topbar">
     <div class="title">
       <h1>Today's Booking</h1>
@@ -1314,22 +1380,10 @@
       : '<p class="muted">No havens.</p>';
   }
 
-  // a security deposit is returnable the DAY AFTER check-out (matches the dashboard's deposit page)
-  function depReturnDate(b){
-    if(!b || !b.checkout) return b && b.checkout;
-    return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
-  }
   function renderToday(){
     bookings = loadBookings();
     const _ab = document.getElementById("approvalBadge");
     if(_ab){ const n = bookings.filter(b => b.approved !== true).length; _ab.textContent = n ? String(n) : ""; }
-    // sidebar count badges — arrivals today, payments still to verify, deposits due to return (match the dashboard)
-    const _tb = document.getElementById("todayBadge");
-    if(_tb){ const _t = iso(today()); const n = bookings.filter(b => b && !b.cancelled && !b.deleted && b.checkin === _t).length; _tb.textContent = n ? String(n) : ""; }
-    const _cb = document.getElementById("collectionsBadge");
-    if(_cb){ let n = 0; bookings.forEach(b => { if(!b || b.deleted) return; if(b.cancelled && b.dpRefunded) return; if((Number(b.downpayment)||0) > 0 && !b.dpVerified) n++; (b.payments || []).forEach(p => { if((Number(p.amount)||0) && !p.verified) n++; }); }); _cb.textContent = n ? String(n) : ""; }
-    const _db = document.getElementById("depositBadge");
-    if(_db){ const _t = iso(today()); const n = bookings.filter(b => { const rd = depReturnDate(b); return b && !b.cancelled && !b.depositReturned && Number(b.deposit||0) > 0 && rd && rd <= _t; }).length; _db.textContent = n ? String(n) : ""; }
     const _pab = document.getElementById("paymentApprovalBadge");
     if(_pab){
       const todayIso = iso(today());
@@ -1556,7 +1610,7 @@
     // Branded per-user URL (e.g. /nicole-todaysbooking) is LOCKED to its owner — only that user
     // (or an admin, so the owner is never locked out) may open it; a different signed-in user is
     // bounced to the plain dashboard. Logged-out visitors were already sent to login just above.
-    const _bo = (location.pathname.replace(/\/+$/, "").toLowerCase().match(/^\/([a-z]+)-todaysbooking$/) || [])[1];
+    const _bo = (location.pathname.replace(/\/+$/, "").toLowerCase().match(/^\/([a-z]+)-(?:todaysbooking|dashboard)$/) || [])[1];
     if(_bo && !admin){
       const _me = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
       if(_me !== _bo){
@@ -2357,6 +2411,37 @@
     if(e.key === KEY){ bookings = loadBookings(); _seedBkSig(bookings); renderToday(); }
     if(e.key === "shph_activity_log") renderTodayLog();
   });
+
+  /* ---- premium hero: live greeting + clock, real "today" arrivals/checkouts ---- */
+  (function(){
+    var DAYS=['Sunday','Monday','Tuesday','Wednesday','Thursday','Friday','Saturday'];
+    var MONTHS=['January','February','March','April','May','June','July','August','September','October','November','December'];
+    var two = function(n){ return String(n).padStart(2,'0'); };
+    function heroTick(){
+      var now = new Date();
+      var h = now.getHours();
+      var greet = h < 12 ? 'Good Morning' : (h < 18 ? 'Good Afternoon' : 'Good Evening');
+      var name = (typeof currentUser === 'function' ? currentUser() : 'Nicole') || 'Nicole';
+      var first = String(name).trim().split(/\s+/)[0] || 'Nicole';
+      var set = function(id, v){ var el = document.getElementById(id); if(el) el.textContent = v; };
+      set('nhGreeting', greet + ', ' + first + '!');
+      set('nhDayName', DAYS[now.getDay()]);
+      set('nhDate', DAYS[now.getDay()] + ', ' + MONTHS[now.getMonth()] + ' ' + now.getDate() + ', ' + now.getFullYear());
+      var hr = now.getHours(), ap = hr >= 12 ? 'PM' : 'AM'; hr = hr % 12; if(hr === 0) hr = 12;
+      set('nhClock', hr + ':' + two(now.getMinutes()) + ' ' + ap);
+      // real arrivals / checkouts for TODAY (reuses this page's own live data + helpers)
+      try{
+        if(typeof loadBookings === 'function' && typeof todayInfo === 'function' && typeof iso === 'function' && typeof today === 'function'){
+          var t = iso(today()), arr = 0, dep = 0;
+          loadBookings().forEach(function(b){ var i = todayInfo(b, t); if(i.arrives) arr++; if(i.departs) dep++; });
+          set('nhSub', 'You have ' + arr + ' arrival' + (arr === 1 ? '' : 's') + ' and ' + dep + ' checkout' + (dep === 1 ? '' : 's') + ' today.');
+        }
+      }catch(e){}
+      var av = document.getElementById('hvAvatar'); if(av) av.textContent = (first.charAt(0) || 'N').toUpperCase();
+    }
+    heroTick();
+    setInterval(heroTick, 1000);
+  })();
 </script>
 </body>
 </html>

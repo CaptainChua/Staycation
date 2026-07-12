@@ -1307,7 +1307,6 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="website" onclick="showPage('website')"><span class="ico"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg></span> Website</div>
 
     <div class="nav-group">Front Desk</div>
-    <div class="nav-item" data-page="approval" onclick="showPage('approval')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M20 12V6a2 2 0 0 0-2-2H6a2 2 0 0 0-2 2v12a2 2 0 0 0 2 2h6"/><path d="M9 9h6M9 13h3"/><path d="m15 18 2 2 4-4"/></svg></span> Booking Approval <span class="nav-badge" id="approvalBadge"></span></div>
     <div class="nav-item" data-page="deposit" onclick="showPage('deposit')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M12 3 4 6v5c0 5 3.4 8.3 8 10 4.6-1.7 8-5 8-10V6Z"/><path d="m9 12 2 2 4-4"/></svg></span> Security Deposit <span class="nav-badge" id="depositBadge"></span></div>
     <div class="nav-item" data-page="violations" onclick="showPage('violations')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M10.3 3.3 1.8 18a2 2 0 0 0 1.7 3h17a2 2 0 0 0 1.7-3L13.7 3.3a2 2 0 0 0-3.4 0Z"/><path d="M12 9v4M12 17h.01"/></svg></span> Violations &amp; Damages</div>
 
@@ -1639,6 +1638,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
       <a class="btn secondary" href="/index.html" target="_blank" rel="noopener">Open site ↗</a>
       <button class="btn" onclick="saveWebsiteSettings()">Save changes</button>
     </div>
+  </div>
+
+  <div class="rcard" id="visitsCard">
+    <h3>Website visits <span class="muted" style="font-weight:400; font-size:13px;">— unique visitors, counted once per person per day</span></h3>
+    <div class="cards" id="visitsCards" style="margin-top:14px;"><div class="muted" style="padding:6px 2px;">Loading…</div></div>
   </div>
 
   <div class="rcard">
@@ -2804,6 +2808,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="page" id="page-deposit">
 <style>
   #page-deposit .dep-toolbar{ display:flex; align-items:center; gap:12px; flex-wrap:wrap; margin-bottom:16px; }
+  #page-deposit .dep-date-label{ font-size:13px; font-weight:700; color:var(--hv-ink); display:inline-flex; align-items:center; gap:7px; padding:8px 12px; background:var(--hv-cream, #f7efe6); border-radius:10px; white-space:nowrap; }
+  #page-deposit .dep-date-label svg{ width:16px; height:16px; stroke:var(--hv-terra); fill:none; stroke-width:1.8; stroke-linecap:round; stroke-linejoin:round; }
   #page-deposit .seg{ display:flex; background:#fff; border:1px solid var(--hv-line); border-radius:10px; overflow:hidden; }
   #page-deposit .seg button{ border:none; background:none; padding:9px 16px; font-size:13px; font-weight:600; color:var(--hv-muted); cursor:pointer; font-family:inherit; }
   #page-deposit .seg button:hover{ background:#faf6ee; }
@@ -2845,11 +2851,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <div class="dp-foot"><span onclick="sdDpToday()">Today</span></div>
                 </div>
             </div>
-            <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;"></select>
+            <span class="dep-date-label" title="Selected date"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg><span id="depositDateLabel"></span></span>
+            <select id="depHavenFilter" onchange="renderDeposit()" title="Filter by haven" style="padding:9px 12px;border:1px solid var(--hv-line);border-radius:10px;background:#fff;font-size:13px;font-weight:600;color:var(--hv-ink);font-family:inherit;cursor:pointer;margin-left:auto;"></select>
         </div>
         <div style="overflow-x:auto;">
             <table class="clean-summary-table">
-                <thead><tr><th>Haven</th><th>Guest</th><th>Contact</th><th>Check-out</th><th>Deposit</th><th>Status</th></tr></thead>
+                <thead><tr><th>Haven</th><th>Booking #</th><th>Guest</th><th>Contact</th><th>Check-out</th><th>Deposit</th><th>Status</th></tr></thead>
                 <tbody id="depositBody"></tbody>
             </table>
         </div>
@@ -3042,6 +3049,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <input type="text" id="depDeductNote" class="dep-num" placeholder="Describe the deduction">
             </div>
         </div>
+        <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">Add / Sukli <span style="color:var(--hv-muted); font-weight:500;">(if you owe them extra — ₱)</span></p>
+        <input type="number" id="depAddAmt" class="dep-num" min="0" value="0" oninput="depRecalcRefund()">
+        <div id="depAddNoteRow" style="display:none;">
+            <p class="muted" style="margin:12px 0 6px; font-weight:700; color:var(--hv-ink);">Note</p>
+            <input type="text" id="depAddNote" class="dep-num" placeholder="Reason for the extra / sukli">
+        </div>
         <div class="dep-refund" id="depRefundBox">Amount to refund <strong id="depRefundVal">₱0</strong></div>
         <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">MOP <span style="color:var(--hv-muted); font-weight:500;">(Mode of refund)</span></p>
         <select id="depMop" class="dep-mop">
@@ -3184,6 +3197,13 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label class="check-label">
                     <input type="checkbox" id="f_holiday" onchange="recalc()">
                     Holiday rate <span class="muted">(swimpass ₱300/pax instead of ₱150)</span>
+                </label>
+            </div>
+
+            <div class="field full">
+                <label class="check-label">
+                    <input type="checkbox" id="f_resched" onchange="recalc()">
+                    Reschedule fee <span class="muted">(₱300 — charge when the guest reschedules)</span>
                 </label>
             </div>
 
@@ -3826,6 +3846,7 @@ const PRICING = {
     swimHoliday: 300,      // per pax
     towel: 50,             // each
     extendPerHr: 150,
+    reschedFee: 300,       // one-time fee charged when a guest reschedules
     deposit: 1000,
     baseIncludedPax: 2,    // base stay rate covers 2 pax
     addPax: 300,           // per extra head, age 5 and above
@@ -3882,13 +3903,25 @@ function lastName(name){
 function endExcl(b){
     return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
 }
+// every booking id that belongs to the SAME reservation as `excludeId` — the booking
+// itself plus any linked haven-segments (they share a groupId). A stay must never count
+// as a conflict against its own records (e.g. extending a stay that has a linked segment,
+// or re-saving a booking whose earlier save left a same-group record).
+function reservationIds(excludeId){
+    const ids = new Set();
+    if(excludeId != null) ids.add(excludeId);
+    const b = excludeId != null ? bookings.find(x => x.id === excludeId) : null;
+    if(b && b.groupId) bookings.forEach(x => { if(x.groupId === b.groupId) ids.add(x.id); });
+    return ids;
+}
 // returns an existing booking that conflicts with `cand`, or null.
 // 10h/21h fully occupy the haven for overlapping dates; 6h allows a second
 // booking on the same date only if it uses the OTHER time slot.
 function findConflict(cand, excludeId){
+    const skip = reservationIds(excludeId);
     const cs = cand.checkin, ce = endExcl(cand);
     return bookings.find(b => {
-        if(b.id === excludeId) return false;
+        if(skip.has(b.id)) return false;         // skip this reservation's own records
         if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         const overlap = cs < endExcl(b) && b.checkin < ce; // half-open: back-to-back is OK
@@ -3928,9 +3961,10 @@ function intervalsClash(ai, bi){
     return ai.start < bi.end + CLEANING_GAP_MIN && bi.start < ai.end + CLEANING_GAP_MIN;
 }
 function findConflictAdmin(cand, excludeId){
+    const skip = reservationIds(excludeId);
     const ci = bookingInterval(cand);
     return bookings.find(b => {
-        if(b.id === excludeId) return false;
+        if(skip.has(b.id)) return false;         // skip this reservation's own records
         if(b.cancelled) return false;            // cancelled bookings free up the haven
         if(b.haven !== cand.haven) return false;
         return intervalsClash(ci, bookingInterval(b));   // overlap incl. the 2h cleaning gap
@@ -3979,8 +4013,9 @@ function computeTotal(b){
     const swim = (Number(b.swimpass) || 0) * (hol ? PRICING.swimHoliday : PRICING.swimRegular);
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const resched = Number(b.reschedFee) || 0;
     const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
-    return Math.max(0, base + pax + swim + tow + ext + dep - (Number(b.discount) || 0));
+    return Math.max(0, base + pax + swim + tow + ext + resched + dep - (Number(b.discount) || 0));
 }
 
 /* ---------- data ---------- */
@@ -4245,7 +4280,7 @@ function todayRow(b, amountCol){
     const st = statusOf(b);
     return `<tr>
         <td><strong>${b.haven}</strong></td>
-        <td>${guestSummary(b)}<br><span class="muted">${b.contact||""}</span></td>
+        <td>${guestSummary(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}<br><span class="muted">${b.contact||""}</span></td>
         <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
         <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
         <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
@@ -5057,7 +5092,7 @@ function renderPicker(){
     const daysInMonth = new Date(y, m+1, 0).getDate();
     const todayIso = iso(today());
 
-    const allowPast = (typeof payrollIsAdmin === "function") ? payrollIsAdmin() : true; // admins can view past records
+    const allowPast = true; // anyone may browse past dates on the calendar (viewing past bookings is read-only)
     let html = "";
     ["Su","Mo","Tu","We","Th","Fr","Sa"].forEach(d => html += `<div class="dp-wd">${d}</div>`);
     for(let i=0;i<startDay;i++) html += `<div class="dp-day empty"></div>`;
@@ -5200,7 +5235,7 @@ function renderTable(){
                 <span class="edit" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 ${window.__PARTNER__ ? "" : `<span class="edit" onclick="openModal(${b.id})">Edit</span>
                 <span class="cancel" onclick="cancelBooking(${b.id})">Cancel</span>
-                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>`}
+                ${isAdminUser() ? `<span class="del" onclick="deleteBooking(${b.id})">Delete</span>` : ""}`}
             </td>
         </tr>`;
     }).join("");
@@ -5266,7 +5301,7 @@ function renderCancelled(){
             <td class="actions">
                 <span class="reinstate" style="color:var(--hv-terra-d);" onclick="viewBooking(${b.id})">View</span>
                 <span class="reinstate" onclick="reinstateBooking(${b.id})">Reinstate</span>
-                <span class="del" onclick="deleteBooking(${b.id})">Delete</span>
+                ${isAdminUser() ? `<span class="del" onclick="deleteBooking(${b.id})">Delete</span>` : ""}
             </td>
         </tr>`;
     }).join("");
@@ -5296,6 +5331,7 @@ function toggleDpRefund(id){
 
 async function deleteBooking(id){
     if(_partnerReadOnly()) return;
+    if(!isAdminUser()){ alert("Only an administrator can delete a booking. Please ask an admin, or use Cancel instead."); return; }
     if(!confirm("Delete this booking?")) return;
     const b = bookings.find(x => x.id === id);
     if(!b) return;
@@ -5745,8 +5781,9 @@ function updatePaymentApprovalBadge(){
 //  • same-day / day-use stays (check-out not after check-in) → the NEXT day (returned tomorrow)
 function depReturnDate(b){
     if(!b || !b.checkout) return b && b.checkout;
-    if(b.checkin && !(b.checkout > b.checkin)) return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
-    return b.checkout;
+    // a security deposit is only returnable the DAY AFTER check-out — this gives staff time to
+    // inspect the room for damage before refunding (a Jul 5 check-out is returnable Jul 6).
+    return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
 }
 function depositsToReturn(){
     const t = iso(today());
@@ -6080,11 +6117,11 @@ function onCheckinChange(){
     onStayChange();
 }
 
-// populate the check-in time options (hourly, 9 AM … 11 PM — earliest check-in is 9 AM)
+// populate the check-in time options (hourly, all day: 12 MN … 11 PM — staff may book any time)
 function fillCheckinTimes(){
     const sel = document.getElementById("f_checkinTime");
     let html = "";
-    for(let h = 9; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
+    for(let h = 0; h < 24; h++){ const t = minToTime(h * 60); html += `<option value="${t}">${t}</option>`; }
     html += `<option value="__custom__">Custom time…</option>`;
     sel.innerHTML = html;
 }
@@ -6310,10 +6347,11 @@ function onExtendChange(){ recomputeDashCheckout(); recalc(); }
 // the minute-of-day a haven becomes free for `cand` = latest clashing check-out + cleaning gap,
 // or null if nothing clashes. Used to label/snap busy havens in the dropdown.
 function havenFreeAtMin(haven, cand){
+    const skip = reservationIds(editingId);
     const ci = bookingInterval(cand);
     let latestEnd = null;
     bookings.forEach(b => {
-        if(b.id === editingId) return;
+        if(skip.has(b.id)) return;               // skip this reservation's own records
         if(b.cancelled) return;
         if(b.haven !== haven) return;
         const bi = bookingInterval(b);   // absolute minutes — fine for comparing/clashing
@@ -6359,25 +6397,24 @@ function updateHavenOptions(){
         }
     });
     sel.innerHTML = html || `<option value="">— No haven —</option>`;
-    sel.value = currentStillFree ? current : (firstFree || "");
+    // Respect the admin's explicit choice: keep the selected haven even when it's busy (it's still
+    // listed, labelled "free from…") instead of silently swapping their pick for another haven.
+    // A genuine clash is reported with a clear message on Save. Fall back only if nothing valid is selected.
+    sel.value = (current && HAVENS.includes(current)) ? current : (firstFree || HAVENS[0] || "");
     updateSlotOptions();
 }
-// when a haven is picked that's busy at the current time, snap the check-in time to when it frees
+// when a haven is picked that's busy earlier the SAME day, snap the check-in time to when it frees
+// (a valid booking then goes straight through). Never move the admin's chosen DATE and never swap
+// their chosen haven — if it still can't fit, Save reports exactly what's blocking it.
 function onHavenChange(){
     const sel = document.getElementById("f_haven");
     const opt = sel.options[sel.selectedIndex];
     const fm = opt && opt.dataset ? Number(opt.dataset.freemin) : NaN;
-    if(opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
-        const days = opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
-        if(days > 0){   // the haven only frees on a later date — move the check-in date to match
-            const ci = document.getElementById("f_checkin");
-            if(ci && ci.value) ci.value = iso(addDays(new Date(ci.value + "T00:00:00"), days));
-        }
-        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees
-        onStayChange();   // recompute check-out/totals and re-validate the haven list
-    } else {
-        updateSlotOptions();
+    const days = opt && opt.dataset && opt.dataset.freedays ? Number(opt.dataset.freedays) : 0;
+    if(days === 0 && opt && opt.dataset && opt.dataset.freemin != null && opt.dataset.freemin !== "" && !isNaN(fm)){
+        setDashCheckinTime(minToTime(Math.max(fm, EARLIEST_CHECKIN_MIN)));   // book from when it frees today
     }
+    onStayChange();   // recompute check-out/totals + refresh haven labels (keeps the pick)
 }
 
 // slot is now derived from the explicit check-in time (no separate slot picker)
@@ -6406,9 +6443,10 @@ function recalc(){
     const swim = (Number(b.swimpass) || 0) * swimRate;
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const resched = document.getElementById("f_resched").checked ? PRICING.reschedFee : 0;
     const dep  = Number(b.deposit) || 0;
     const discount = Number(document.getElementById("f_discount").value) || 0;
-    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
+    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
 
     document.getElementById("f_total").value = total;
     const down = Number(document.getElementById("f_down").value) || 0;
@@ -6424,6 +6462,7 @@ function recalc(){
         ` · Swimpass ${Number(b.swimpass)||0}×${peso(swimRate)}: ${peso(swim)}` +
         ` · Towels ${Number(b.towels)||0}×₱50: ${peso(tow)}` +
         ` · Extend ${Number(b.extend)||0}h×₱150: ${peso(ext)}` +
+        (resched > 0 ? ` · Reschedule fee: ${peso(resched)}` : "") +
         ` · Deposit: ${peso(dep)}` +
         (discount > 0 ? ` · Discount: −${peso(discount)}` : "");
 }
@@ -6471,6 +6510,7 @@ function openModal(id){
         setField("f_towels", b.towels || 0);
         setField("f_extend", b.extend || 0);
         document.getElementById("f_holiday").checked = !!b.holiday;
+        document.getElementById("f_resched").checked = Number(b.reschedFee) > 0;
         setField("f_deposit", b.deposit === undefined ? PRICING.deposit : b.deposit);
         setDiscountField(b.discount || 0);
         setField("f_method", b.method || "GCash");
@@ -6501,6 +6541,7 @@ function openModal(id){
         setField("f_towels", 0);
         setField("f_extend", 0);
         document.getElementById("f_holiday").checked = false;
+        document.getElementById("f_resched").checked = false;
         setField("f_deposit", PRICING.deposit);
         setDiscountField(0);
         setField("f_method", "GCash");
@@ -6607,6 +6648,7 @@ function buildConfirmationHTML(){
         swimpass: Number(g("f_swimpass").value) || 0, towels: Number(g("f_towels").value) || 0,
         extend: Number(g("f_extend").value) || 0, holiday: g("f_holiday").checked
     };
+    const resched = g("f_resched").checked ? PRICING.reschedFee : 0;
     const dep = Number(g("f_deposit").value) || 0;
     const discount = Number(g("f_discount").value) || 0;
     const method = g("f_method").value || "GCash";
@@ -6620,7 +6662,7 @@ function buildConfirmationHTML(){
     const pax = extraHeads * PRICING.addPax;
     const swimRate = (b.holiday || bookingIsHoliday({ checkin, checkout })) ? PRICING.swimHoliday : PRICING.swimRegular;   // date OR checkbox — keep the confirmation preview equal to the saved total
     const swim = b.swimpass * swimRate, tow = b.towels * PRICING.towel, ext = b.extend * PRICING.extendPerHr;
-    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
+    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
     const balance = Math.max(0, total - down - collected);
 
     const isON = stayH === 21;
@@ -6677,6 +6719,7 @@ function buildConfirmationHTML(){
         ${ps("Extra pax (" + extraHeads + " × " + peso(PRICING.addPax) + ")", peso(pax), pax <= 0 ? "zero" : "")}
         ${ps("Swimpass (" + b.swimpass + " × " + peso(swimRate) + ")", peso(swim), swim <= 0 ? "zero" : "")}
         ${ps("Towels / Extend", peso(tow + ext), (tow + ext) <= 0 ? "zero" : "")}
+        ${resched > 0 ? ps("Reschedule fee", peso(resched)) : ""}
         ${ps("Security deposit (refundable)", peso(dep))}
         ${discount > 0 ? ps("Discount", "− " + peso(discount)) : ""}
         <div class="total"><span class="l">Total payable</span><span class="v">${peso(total)}</span></div>
@@ -7328,14 +7371,8 @@ async function saveBooking(){
         alert("Saturday check-ins are 21 hours only.");
         return;
     }
-    // earliest check-in is 9:00 AM (a same-day check-out pushes it later via the 2h cleaning gap).
-    // Admins are exempt — they may set an earlier custom time (e.g. 8:00 AM). The public website
-    // (booknow) keeps the 9:00 AM minimum; this exemption is dashboard/admin-only.
-    const ciMin = parseTimeMin(dashCheckinTimeValue());
-    if(ciMin != null && ciMin < EARLIEST_CHECKIN_MIN && !isAdminUser()){
-        alert("The earliest check-in time is 9:00 AM.");
-        return;
-    }
+    // Dashboard staff (admins and front desk alike) may book ANY check-in time — there is no
+    // 9:00 AM floor here. The public website (booknow) keeps its own 9:00 AM minimum separately.
 
     const data = {
         haven: document.getElementById("f_haven").value,
@@ -7350,6 +7387,7 @@ async function saveBooking(){
         towels: Number(document.getElementById("f_towels").value) || 0,
         extend: Number(document.getElementById("f_extend").value) || 0,
         holiday: document.getElementById("f_holiday").checked,
+        reschedFee: document.getElementById("f_resched").checked ? PRICING.reschedFee : 0,
         deposit: Number(document.getElementById("f_deposit").value) || 0,
         discount: Number(document.getElementById("f_discount").value) || 0,
         method: document.getElementById("f_method").value,
@@ -7409,6 +7447,7 @@ async function saveBooking(){
             slot: null,
             swimpass: 0, towels: 0, extend: 0,
             holiday: data.holiday,
+            reschedFee: 0,             // reschedule fee is charged once, on the primary
             deposit: 0,                // security deposit is charged once, on the primary
             method: data.method,
             downpayment: 0,
@@ -7419,8 +7458,9 @@ async function saveBooking(){
             _sid: seg.sid                                        // stable id for retry-safe upsert (stripped before save)
         };
         sd.total = computeTotal(sd);
-        // can't clash with existing bookings (except the one being edited), the primary, or earlier segments
-        const clashSeg = bookings.find(b => b.id !== editingId && overlapClash(b, sd))
+        // can't clash with existing bookings (except this reservation's own records), the primary, or earlier segments
+        const skipSeg = reservationIds(editingId);
+        const clashSeg = bookings.find(b => !skipSeg.has(b.id) && overlapClash(b, sd))
             || (overlapClash(data, sd) ? data : null)
             || segDatas.find(s => overlapClash(s, sd));
         if(clashSeg){
@@ -7521,6 +7561,29 @@ function logout(){
 }
 
 /* ---------- sidebar navigation ---------- */
+// fetch + show the website visit counts (unique visitors/day) on the Website page
+async function renderWebsiteVisits(){
+    const el = document.getElementById("visitsCards");
+    if(!el) return;
+    el.innerHTML = '<div class="muted" style="padding:6px 2px;">Loading…</div>';
+    try{
+        const r = await fetch("/api/visits", { cache: "no-store" });
+        const v = await r.json();
+        const days = (v && v.days) || {};
+        const todayIso = new Date(Date.now() + 8 * 3600 * 1000).toISOString().slice(0, 10), monthPfx = todayIso.slice(0, 7);   // PH day (UTC+8)
+        const todayN = Number(days[todayIso]) || 0;
+        let monthN = 0;
+        Object.keys(days).forEach(d => { if(d.slice(0, 7) === monthPfx) monthN += Number(days[d]) || 0; });
+        const fmtN = n => Number(n || 0).toLocaleString("en-PH");
+        const globe = '<svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3c2.5 2.5 3.8 5.7 3.8 9s-1.3 6.5-3.8 9c-2.5-2.5-3.8-5.7-3.8-9S9.5 5.5 12 3Z"/></svg>';
+        const card = (label, val, sub, chip) => `<div class="card"><div class="card-top"><span class="card-label">${label}</span><span class="card-ico ${chip}">${globe}</span></div><div class="number">${fmtN(val)}</div><div class="card-sub">${sub}</div></div>`;
+        el.innerHTML = card("Total visits", v.total, "since launch", "ico-gold")
+            + card("Today", todayN, fmt(todayIso), "ico-green")
+            + card("This month", monthN, "", "ico-terra");
+    }catch(e){
+        el.innerHTML = '<div class="muted" style="padding:6px 2px;">Could not load visits — try again.</div>';
+    }
+}
 function showPage(page){
     if(!pageAllowed(page)) return;   // access control
     document.querySelectorAll(".page").forEach(p =>
@@ -7528,6 +7591,7 @@ function showPage(page){
     document.querySelectorAll(".sidebar .nav-item").forEach(n =>
         n.classList.toggle("active", n.dataset.page === page));
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
+    if(page === "website") renderWebsiteVisits();
     // breadcrumb in the top bar
     const CRUMB = {
         today:["Main","Today's Booking"], calendar:["Main","Calendar & Bookings"], guestform:["Main","Guest Form"], collections:["Main","Collection Reports"], website:["Main","Website"], approval:["Front Desk","Booking Approval"], deposit:["Front Desk","Security Deposit"], violations:["Front Desk","Violations & Damages"],
@@ -8568,25 +8632,33 @@ function renderDeposit(){
                     : `<span class="dep-status returned" style="cursor:pointer;" onclick="openDepReturn(${b.id})" title="View / manage refund">✓ Returned${mopTxt}</span>`;
                 statusCell = `<div class="dep-cell">${pill}<button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn secondary" onclick="undoDeposit(${b.id})">↺ Undo</button>`}</div>`;
             } else {
-                statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
+                // a deposit can only be returned the day AFTER check-out — until then show when it opens up
+                const rd = depReturnDate(b);
+                const returnable = rd && rd <= _tToday;
+                if(returnable){
+                    statusCell = `<div class="dep-cell"><span class="dep-status held">To return</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button>${ro ? "" : `<button class="btn" onclick="openDepReturn(${b.id})">Mark returned</button>`}</div>`;
+                } else {
+                    statusCell = `<div class="dep-cell"><span class="dep-status held" style="opacity:.65;" title="Returnable the day after check-out">Returnable ${fmt(rd)}</span><button class="btn secondary" onclick="viewBooking(${b.id})">View</button></div>`;
+                }
             }
         } else {
             statusCell = `<span class="muted">No deposit</span>`;
         }
         return `<tr>
             <td><span class="dot" style="background:${dot}"></span>${b.haven}</td>
+            <td><a onclick="viewBooking(${b.id})" title="Open booking details" style="color:#a56b2e; font-weight:700; letter-spacing:.3px; text-decoration:none; cursor:pointer; white-space:nowrap;">#${bookingCode(b)}</a></td>
             <td>${primaryName(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}</td>
             <td>${b.contact || "—"}</td>
             <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
             <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${
-                (dep > 0 && returned && Number(b.depositDeductAmount) > 0)
-                    ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)} · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}</span>`
+                (dep > 0 && returned && (Number(b.depositDeductAmount) > 0 || Number(b.depositAddAmount) > 0))
+                    ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)}${Number(b.depositDeductAmount) > 0 ? ` · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}` : ""}${Number(b.depositAddAmount) > 0 ? ` · +${peso(b.depositAddAmount)} sukli` : ""}</span>`
                 : (dep > 0 && _vdPend > 0)
                     ? `<br><span style="font-weight:600; color:#c0283d;">−${peso(_vdPend)} pending</span> <span class="muted">· refund ${peso(Math.max(0, dep - _vdPend))}</span>`
                 : ""}</td>
             <td>${statusCell}</td>
         </tr>`;
-    }).join("") : `<tr><td colspan="6" class="empty">No check-outs in this period.</td></tr>`;
+    }).join("") : `<tr><td colspan="7" class="empty">No check-outs in this period.</td></tr>`;
 
     const toReturn = list.reduce((s, b) => {
         if(b.depositReturned) return s;
@@ -8614,7 +8686,7 @@ async function undoDeposit(id){
     if(_undoDep) return;   // block double-click (idempotent anyway, but avoids a redundant write + double log)
     _undoDep = true;
     try{
-        const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositRefundAmount"];
+        const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositAddAmount","depositAddNote","depositRefundAmount"];
         let ok = false;
         try{ const res = await fetch("/api/booking/" + encodeURIComponent(id) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set:{ depositReturned:false }, del }) }); ok = res.ok; }catch(e){}
         if(!ok){ alert("⚠️ Couldn't undo on the server (slow / offline). Please try again."); return; }
@@ -8636,7 +8708,9 @@ function depRecalcRefund(){
     document.getElementById("depDeductRow").style.display = reason ? "block" : "none";
     document.getElementById("depOthersRow").style.display = reason === "Others" ? "block" : "none";
     const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
-    const refund = Math.max(0, depCurrentDeposit - cost);
+    const add = Number(document.getElementById("depAddAmt").value) || 0;
+    document.getElementById("depAddNoteRow").style.display = add > 0 ? "block" : "none";
+    const refund = Math.max(0, depCurrentDeposit - cost + add);
     document.getElementById("depRefundVal").textContent = peso(refund);
     return refund;
 }
@@ -8644,6 +8718,11 @@ function openDepReturn(id){
     const b = bookings.find(x => x.id === id);
     if(!b) return;
     const returned = !!b.depositReturned;
+    // block returning a deposit before the day after check-out (unless it's already been returned/managed)
+    if(!returned){
+        const rd = depReturnDate(b);
+        if(rd && rd > iso(today())){ alert(`This deposit can only be returned starting ${fmt(rd)} — the day after check-out.`); return; }
+    }
     depReturnId = id;
     depCurrentDeposit = Number(b.deposit || 0);
     depProofData = b.depositProof || null;   // keep existing proof when managing a returned one
@@ -8659,6 +8738,8 @@ function openDepReturn(id){
     document.getElementById("depDeduct").value = b.depositDeductReason || _vReason;
     document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null && Number(b.depositDeductAmount) > 0) ? b.depositDeductAmount : _vSum;
     document.getElementById("depDeductNote").value = b.depositDeductNote || "";
+    document.getElementById("depAddAmt").value = (b.depositAddAmount != null && Number(b.depositAddAmount) > 0) ? b.depositAddAmount : 0;
+    document.getElementById("depAddNote").value = b.depositAddNote || "";
     depRecalcRefund();
     document.getElementById("depProofName").textContent = depProofData ? "Photo attached ✓" : "No file chosen";
     document.getElementById("depProofFile").value = "";
@@ -8701,7 +8782,8 @@ async function confirmDepReturn(){
     if(!b) return;
     const reason = document.getElementById("depDeduct").value;
     const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
-    const refund = Math.max(0, Number(b.deposit || 0) - cost);
+    const add = Number(document.getElementById("depAddAmt").value) || 0;
+    const refund = Math.max(0, Number(b.deposit || 0) - cost + add);
     _depSaving = true;
     try{
         // 1) offload the refund-proof photo to a tiny /img link
@@ -8714,6 +8796,7 @@ async function confirmDepReturn(){
             depositMop: document.getElementById("depMop").value,
             depositDeductReason: reason || "", depositDeductAmount: cost,
             depositDeductNote: reason === "Others" ? document.getElementById("depDeductNote").value.trim() : "",
+            depositAddAmount: add, depositAddNote: add > 0 ? document.getElementById("depAddNote").value.trim() : "",
             depositRefundAmount: refund,
             depositReturnedAt: new Date().toISOString(), depositReturnedBy: currentUser()
         };
@@ -8726,7 +8809,8 @@ async function confirmDepReturn(){
         b.updatedAt = new Date().toISOString();
         try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
         const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
-        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt} via ${set.depositMop}`);
+        const addTxt = add > 0 ? ` (+${peso(add)} sukli)` : "";
+        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt}${addTxt} via ${set.depositMop}`);
         closeDepReturn();
         renderDeposit();
     } finally { _depSaving = false; }
@@ -8809,7 +8893,13 @@ function sdRenderPicker(){
     }
     document.getElementById("sdDpGrid").innerHTML = html;
     const hint = document.getElementById("sdDpHint");
-    if(hint) hint.textContent = sdRangeMode ? (sdPendingStart ? "Now pick the end date" : "Pick the start date") : "";
+    if(hint){
+        if(sdRangeMode){
+            hint.textContent = sdPendingStart ? `Start ${fmt(sdPendingStart)} — now pick the end date` : "Pick the start date";
+        } else {
+            hint.textContent = di ? `Selected: ${fmt(di)}` : "";
+        }
+    }
 }
 function sdPickDay(ci){
     const di = document.getElementById("depositDate"), de = document.getElementById("depositDateEnd");
@@ -12461,7 +12551,20 @@ async function saveUsersToServer(arr, attempt){
 function currentUserObj(){
     const name = (localStorage.getItem("shph_current_user") || "").trim();
     if(!name) return null;
-    return users.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
+    // `users` is declared further down the script. An early render (e.g. renderTable during the
+    // initial renderAll) can reach here BEFORE that line runs — accessing a `let` in its temporal
+    // dead zone throws and would crash the whole page. Guard it: treat "not ready yet" as no user;
+    // the authoritative render happens again after users initializes.
+    let _u; try { _u = users; } catch(e){ return null; }
+    if(!Array.isArray(_u)) return null;
+    return _u.find(u => (u.name || "").toLowerCase() === name.toLowerCase()) || null;
+}
+// the account a branded shortcut URL belongs to (e.g. "nicole" on /nicole-board), or null.
+// Used to LOCK those URLs to their owner — only that user (or an admin) may open them.
+function brandedUrlOwner(){
+    const m = location.pathname.replace(/\/+$/, "").toLowerCase()
+        .match(/^\/([a-z]+)-(board|calendar|guestform|deposit|todaysbooking)$/);
+    return m ? m[1] : null;
 }
 // fail CLOSED: an unrecognised user gets no admin / no pages (prevents the
 // "full sidebar flashes for a limited user" glitch)
@@ -12507,6 +12610,18 @@ function applyPermissions(){
     if(!currentUserObj()){
         if(_sessName && !_rehealedUsers){ _rehealedUsers = true; _repullUsersThenApply(); return; }
         window.location.href = window.__ON_PARTNER_PATH__ ? "/partner-login" : "/admin.html"; return;
+    }
+    // Branded per-user URLs (e.g. /nicole-board) are LOCKED to their owner. A different signed-in
+    // user (an admin is exempt so the owner is never locked out of their own site) is bounced to
+    // the plain dashboard. Logged-out visitors were already sent to the login page just above.
+    const _brandOwner = brandedUrlOwner();
+    if(_brandOwner && !isAdminUser()){
+        const _me = (localStorage.getItem("shph_current_user") || "").trim().toLowerCase();
+        if(_me !== _brandOwner){
+            const _who = _brandOwner.charAt(0).toUpperCase() + _brandOwner.slice(1);
+            alert("This page is only for " + _who + "'s account. You're signed in as someone else.");
+            window.location.href = "/dashboard.html"; return;
+        }
     }
     const perms = currentPerms();
     const admin = isAdminUser();
@@ -12663,13 +12778,47 @@ renderUsers();
 applyPermissions();
 document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
 
+// Safety net: a signed-in user must NEVER be left with a completely blank sidebar (e.g. if
+// applyPermissions() was skipped by a render error, or their saved permissions failed to load).
+// Reveal the core front-desk pages so they can always navigate and are never locked out.
+function ensureSidebarNotEmpty(){
+    try{
+        const sb = document.querySelector(".sidebar");
+        if(!sb || window.__PARTNER__) return;                        // partners are handled separately
+        const items = Array.prototype.slice.call(sb.querySelectorAll(".nav-item"));
+        const anyVisible = !sb.classList.contains("perms-pending") && items.some(function(n){ return n.style.display !== "none"; });
+        if(anyVisible) return;                                        // menu already has items → nothing to do
+        const CORE = ["board","today","calendar","guestform","deposit"];
+        let shown = 0;
+        items.forEach(function(n){ if(CORE.indexOf(n.dataset.page) !== -1){ n.style.display = "flex"; shown++; } });
+        if(!shown) return;
+        sb.classList.remove("perms-pending");
+        sb.querySelectorAll(".nav-group").forEach(function(g){
+            let s = g.nextElementSibling, any = false;
+            while(s && !(s.classList && s.classList.contains("nav-group"))){
+                if(s.classList && s.classList.contains("nav-item") && s.style.display !== "none"){ any = true; break; }
+                s = s.nextElementSibling;
+            }
+            g.style.display = any ? "" : "none";
+        });
+    }catch(e){ console.error("ensureSidebarNotEmpty failed", e); }
+}
 // reopen the last page the admin was on (instead of resetting to Finance)
 // Payment Approval was removed (its job is now done on Collection Reports) — send anyone whose last
 // page was Payment Approval to Collection Reports instead of a now-inaccessible page.
 try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") localStorage.setItem("shph_dashboard_page", "collections"); }catch(e){}
-const savedPage = localStorage.getItem("shph_dashboard_page");
-if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage);
-applyPermissions();
+// Branded shortcut URLs (e.g. /nicole-board) open straight to that section, overriding the
+// remembered page. Access control still applies — showPage() ignores pages the user can't see.
+const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
+const _brandedPage = BRANDED_PAGE[location.pathname.replace(/\/+$/, "").toLowerCase()];
+const savedPage = _brandedPage || localStorage.getItem("shph_dashboard_page");
+// Bulletproof startup: a render error on the opening page must NEVER stop the sidebar /
+// permissions from initializing — otherwise the menu stays blank and the user is locked out.
+try { if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage); }
+catch(_e){ console.error("[startup] showPage failed for", savedPage, _e); }
+try { applyPermissions(); }
+catch(_e){ console.error("[startup] applyPermissions failed", _e); }
+ensureSidebarNotEmpty();   // last-resort: a signed-in user is never left with a blank menu
 if(typeof renderMaintToggle === "function") renderMaintToggle();   // sync the Website Live/Maintenance switch
 
 // opened here from Today's Booking's "+ Add booking" → show the unified modal
@@ -12679,13 +12828,17 @@ try{
         setTimeout(function(){ if(typeof openModal === "function") openModal(); }, 60);
     }
 }catch(e){}
-// deep link: dashboard.html?edit=<bookingId> (e.g. from Collection Reports, opened in a new tab)
+// deep link: dashboard.html?edit=<id> (from Collection Reports → Proof of Payment tab)
+//        or: dashboard.html?open=<id> (from Today's Booking → booking details tab)
 try{
-    const _editId = new URLSearchParams(location.search).get("edit");
-    if(_editId){
+    const _qp = new URLSearchParams(location.search);
+    const _editId = _qp.get("edit");
+    const _openId = _qp.get("open");
+    const _targetId = _editId || _openId;
+    if(_targetId){
         setTimeout(function(){
             try{
-                const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_editId); });
+                const _b = (typeof bookings !== "undefined") && bookings.find(function(x){ return String(x.id) === String(_targetId); });
                 if(_b){
                     if(window.__PARTNER__){
                         // partners are read-only: show the viewer, never the editable modal
@@ -12699,8 +12852,9 @@ try{
                         const _prevPage = localStorage.getItem("shph_dashboard_page");
                         if(typeof showPage === "function") showPage("calendar");
                         if(typeof openModal === "function") openModal(_b.id);
-                        // opened from Collection Reports to CHECK the payment → land on the Proof of Payment tab
-                        if(typeof bkGoPage === "function") bkGoPage(2);
+                        // ?edit → opened to CHECK the payment, land on Proof of Payment tab.
+                        // ?open → opened to view details, stay on the modal's default (details) tab.
+                        if(_editId && typeof bkGoPage === "function") bkGoPage(2);
                         try{ if(_prevPage) localStorage.setItem("shph_dashboard_page", _prevPage); else localStorage.removeItem("shph_dashboard_page"); }catch(e){}
                     }
                 }

@@ -3047,6 +3047,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <input type="text" id="depDeductNote" class="dep-num" placeholder="Describe the deduction">
             </div>
         </div>
+        <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">Add / Sukli <span style="color:var(--hv-muted); font-weight:500;">(if you owe them extra — ₱)</span></p>
+        <input type="number" id="depAddAmt" class="dep-num" min="0" value="0" oninput="depRecalcRefund()">
+        <div id="depAddNoteRow" style="display:none;">
+            <p class="muted" style="margin:12px 0 6px; font-weight:700; color:var(--hv-ink);">Note</p>
+            <input type="text" id="depAddNote" class="dep-num" placeholder="Reason for the extra / sukli">
+        </div>
         <div class="dep-refund" id="depRefundBox">Amount to refund <strong id="depRefundVal">₱0</strong></div>
         <p class="muted" style="margin:14px 0 6px; font-weight:700; color:var(--hv-ink);">MOP <span style="color:var(--hv-muted); font-weight:500;">(Mode of refund)</span></p>
         <select id="depMop" class="dep-mop">
@@ -3189,6 +3195,13 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <label class="check-label">
                     <input type="checkbox" id="f_holiday" onchange="recalc()">
                     Holiday rate <span class="muted">(swimpass ₱300/pax instead of ₱150)</span>
+                </label>
+            </div>
+
+            <div class="field full">
+                <label class="check-label">
+                    <input type="checkbox" id="f_resched" onchange="recalc()">
+                    Reschedule fee <span class="muted">(₱300 — charge when the guest reschedules)</span>
                 </label>
             </div>
 
@@ -3831,6 +3844,7 @@ const PRICING = {
     swimHoliday: 300,      // per pax
     towel: 50,             // each
     extendPerHr: 150,
+    reschedFee: 300,       // one-time fee charged when a guest reschedules
     deposit: 1000,
     baseIncludedPax: 2,    // base stay rate covers 2 pax
     addPax: 300,           // per extra head, age 5 and above
@@ -3997,8 +4011,9 @@ function computeTotal(b){
     const swim = (Number(b.swimpass) || 0) * (hol ? PRICING.swimHoliday : PRICING.swimRegular);
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const resched = Number(b.reschedFee) || 0;
     const dep  = (b.deposit === undefined ? PRICING.deposit : Number(b.deposit)) || 0;
-    return Math.max(0, base + pax + swim + tow + ext + dep - (Number(b.discount) || 0));
+    return Math.max(0, base + pax + swim + tow + ext + resched + dep - (Number(b.discount) || 0));
 }
 
 /* ---------- data ---------- */
@@ -6426,9 +6441,10 @@ function recalc(){
     const swim = (Number(b.swimpass) || 0) * swimRate;
     const tow  = (Number(b.towels) || 0) * PRICING.towel;
     const ext  = (Number(b.extend) || 0) * PRICING.extendPerHr;
+    const resched = document.getElementById("f_resched").checked ? PRICING.reschedFee : 0;
     const dep  = Number(b.deposit) || 0;
     const discount = Number(document.getElementById("f_discount").value) || 0;
-    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
+    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
 
     document.getElementById("f_total").value = total;
     const down = Number(document.getElementById("f_down").value) || 0;
@@ -6444,6 +6460,7 @@ function recalc(){
         ` · Swimpass ${Number(b.swimpass)||0}×${peso(swimRate)}: ${peso(swim)}` +
         ` · Towels ${Number(b.towels)||0}×₱50: ${peso(tow)}` +
         ` · Extend ${Number(b.extend)||0}h×₱150: ${peso(ext)}` +
+        (resched > 0 ? ` · Reschedule fee: ${peso(resched)}` : "") +
         ` · Deposit: ${peso(dep)}` +
         (discount > 0 ? ` · Discount: −${peso(discount)}` : "");
 }
@@ -6491,6 +6508,7 @@ function openModal(id){
         setField("f_towels", b.towels || 0);
         setField("f_extend", b.extend || 0);
         document.getElementById("f_holiday").checked = !!b.holiday;
+        document.getElementById("f_resched").checked = Number(b.reschedFee) > 0;
         setField("f_deposit", b.deposit === undefined ? PRICING.deposit : b.deposit);
         setDiscountField(b.discount || 0);
         setField("f_method", b.method || "GCash");
@@ -6521,6 +6539,7 @@ function openModal(id){
         setField("f_towels", 0);
         setField("f_extend", 0);
         document.getElementById("f_holiday").checked = false;
+        document.getElementById("f_resched").checked = false;
         setField("f_deposit", PRICING.deposit);
         setDiscountField(0);
         setField("f_method", "GCash");
@@ -6627,6 +6646,7 @@ function buildConfirmationHTML(){
         swimpass: Number(g("f_swimpass").value) || 0, towels: Number(g("f_towels").value) || 0,
         extend: Number(g("f_extend").value) || 0, holiday: g("f_holiday").checked
     };
+    const resched = g("f_resched").checked ? PRICING.reschedFee : 0;
     const dep = Number(g("f_deposit").value) || 0;
     const discount = Number(g("f_discount").value) || 0;
     const method = g("f_method").value || "GCash";
@@ -6640,7 +6660,7 @@ function buildConfirmationHTML(){
     const pax = extraHeads * PRICING.addPax;
     const swimRate = (b.holiday || bookingIsHoliday({ checkin, checkout })) ? PRICING.swimHoliday : PRICING.swimRegular;   // date OR checkbox — keep the confirmation preview equal to the saved total
     const swim = b.swimpass * swimRate, tow = b.towels * PRICING.towel, ext = b.extend * PRICING.extendPerHr;
-    const total = Math.max(0, base + pax + swim + tow + ext + dep - discount);
+    const total = Math.max(0, base + pax + swim + tow + ext + resched + dep - discount);
     const balance = Math.max(0, total - down - collected);
 
     const isON = stayH === 21;
@@ -6697,6 +6717,7 @@ function buildConfirmationHTML(){
         ${ps("Extra pax (" + extraHeads + " × " + peso(PRICING.addPax) + ")", peso(pax), pax <= 0 ? "zero" : "")}
         ${ps("Swimpass (" + b.swimpass + " × " + peso(swimRate) + ")", peso(swim), swim <= 0 ? "zero" : "")}
         ${ps("Towels / Extend", peso(tow + ext), (tow + ext) <= 0 ? "zero" : "")}
+        ${resched > 0 ? ps("Reschedule fee", peso(resched)) : ""}
         ${ps("Security deposit (refundable)", peso(dep))}
         ${discount > 0 ? ps("Discount", "− " + peso(discount)) : ""}
         <div class="total"><span class="l">Total payable</span><span class="v">${peso(total)}</span></div>
@@ -7364,6 +7385,7 @@ async function saveBooking(){
         towels: Number(document.getElementById("f_towels").value) || 0,
         extend: Number(document.getElementById("f_extend").value) || 0,
         holiday: document.getElementById("f_holiday").checked,
+        reschedFee: document.getElementById("f_resched").checked ? PRICING.reschedFee : 0,
         deposit: Number(document.getElementById("f_deposit").value) || 0,
         discount: Number(document.getElementById("f_discount").value) || 0,
         method: document.getElementById("f_method").value,
@@ -7423,6 +7445,7 @@ async function saveBooking(){
             slot: null,
             swimpass: 0, towels: 0, extend: 0,
             holiday: data.holiday,
+            reschedFee: 0,             // reschedule fee is charged once, on the primary
             deposit: 0,                // security deposit is charged once, on the primary
             method: data.method,
             downpayment: 0,
@@ -8626,8 +8649,8 @@ function renderDeposit(){
             <td>${b.contact || "—"}</td>
             <td>${fmt(b.checkout)} · <span class="muted">${checkoutTimeStr(b)}</span></td>
             <td class="dep-amt">${dep > 0 ? peso(dep) : "—"}${
-                (dep > 0 && returned && Number(b.depositDeductAmount) > 0)
-                    ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)} · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}</span>`
+                (dep > 0 && returned && (Number(b.depositDeductAmount) > 0 || Number(b.depositAddAmount) > 0))
+                    ? `<br><span class="muted" style="font-weight:500;">Refunded ${peso(b.depositRefundAmount)}${Number(b.depositDeductAmount) > 0 ? ` · −${peso(b.depositDeductAmount)} ${b.depositDeductReason}` : ""}${Number(b.depositAddAmount) > 0 ? ` · +${peso(b.depositAddAmount)} sukli` : ""}</span>`
                 : (dep > 0 && _vdPend > 0)
                     ? `<br><span style="font-weight:600; color:#c0283d;">−${peso(_vdPend)} pending</span> <span class="muted">· refund ${peso(Math.max(0, dep - _vdPend))}</span>`
                 : ""}</td>
@@ -8661,7 +8684,7 @@ async function undoDeposit(id){
     if(_undoDep) return;   // block double-click (idempotent anyway, but avoids a redundant write + double log)
     _undoDep = true;
     try{
-        const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositRefundAmount"];
+        const del = ["depositProof","depositReturnedAt","depositReturnedBy","depositDeductReason","depositDeductAmount","depositDeductNote","depositAddAmount","depositAddNote","depositRefundAmount"];
         let ok = false;
         try{ const res = await fetch("/api/booking/" + encodeURIComponent(id) + "/deposit", { method:"POST", headers:{"Content-Type":"application/json"}, body: JSON.stringify({ set:{ depositReturned:false }, del }) }); ok = res.ok; }catch(e){}
         if(!ok){ alert("⚠️ Couldn't undo on the server (slow / offline). Please try again."); return; }
@@ -8683,7 +8706,9 @@ function depRecalcRefund(){
     document.getElementById("depDeductRow").style.display = reason ? "block" : "none";
     document.getElementById("depOthersRow").style.display = reason === "Others" ? "block" : "none";
     const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
-    const refund = Math.max(0, depCurrentDeposit - cost);
+    const add = Number(document.getElementById("depAddAmt").value) || 0;
+    document.getElementById("depAddNoteRow").style.display = add > 0 ? "block" : "none";
+    const refund = Math.max(0, depCurrentDeposit - cost + add);
     document.getElementById("depRefundVal").textContent = peso(refund);
     return refund;
 }
@@ -8711,6 +8736,8 @@ function openDepReturn(id){
     document.getElementById("depDeduct").value = b.depositDeductReason || _vReason;
     document.getElementById("depDeductAmt").value = (b.depositDeductAmount != null && Number(b.depositDeductAmount) > 0) ? b.depositDeductAmount : _vSum;
     document.getElementById("depDeductNote").value = b.depositDeductNote || "";
+    document.getElementById("depAddAmt").value = (b.depositAddAmount != null && Number(b.depositAddAmount) > 0) ? b.depositAddAmount : 0;
+    document.getElementById("depAddNote").value = b.depositAddNote || "";
     depRecalcRefund();
     document.getElementById("depProofName").textContent = depProofData ? "Photo attached ✓" : "No file chosen";
     document.getElementById("depProofFile").value = "";
@@ -8753,7 +8780,8 @@ async function confirmDepReturn(){
     if(!b) return;
     const reason = document.getElementById("depDeduct").value;
     const cost = reason ? (Number(document.getElementById("depDeductAmt").value) || 0) : 0;
-    const refund = Math.max(0, Number(b.deposit || 0) - cost);
+    const add = Number(document.getElementById("depAddAmt").value) || 0;
+    const refund = Math.max(0, Number(b.deposit || 0) - cost + add);
     _depSaving = true;
     try{
         // 1) offload the refund-proof photo to a tiny /img link
@@ -8766,6 +8794,7 @@ async function confirmDepReturn(){
             depositMop: document.getElementById("depMop").value,
             depositDeductReason: reason || "", depositDeductAmount: cost,
             depositDeductNote: reason === "Others" ? document.getElementById("depDeductNote").value.trim() : "",
+            depositAddAmount: add, depositAddNote: add > 0 ? document.getElementById("depAddNote").value.trim() : "",
             depositRefundAmount: refund,
             depositReturnedAt: new Date().toISOString(), depositReturnedBy: currentUser()
         };
@@ -8778,7 +8807,8 @@ async function confirmDepReturn(){
         b.updatedAt = new Date().toISOString();
         try{ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(bookings)); }catch(e){}
         const dedTxt = cost > 0 ? ` (−${peso(cost)} ${reason})` : "";
-        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt} via ${set.depositMop}`);
+        const addTxt = add > 0 ? ` (+${peso(add)} sukli)` : "";
+        logActivity(`returned security deposit — ${b.haven} (${primaryName(b)}) · refunded ${peso(refund)}${dedTxt}${addTxt} via ${set.depositMop}`);
         closeDepReturn();
         renderDeposit();
     } finally { _depSaving = false; }

@@ -262,9 +262,8 @@ function renderBooking(){
     if(b.addons && b.addons.pool) addonParts.push(`${b.addons.pool} pool pass`);
     if(b.addons && b.addons.hours) addonParts.push(`${b.addons.hours} extra hour${b.addons.hours === 1 ? "" : "s"}`);
 
-    // payment method options come from the dashboard's editable list, plus Cash on arrival
-    const methodOptions = (SETTINGS.payment.methods || []).map(m => `<option>${m.name}</option>`).join("")
-        + `<option>Cash on arrival</option>`;
+    // payment method options come from the dashboard's editable list
+    const methodOptions = (SETTINGS.payment.methods || []).map(m => `<option>${m.name}</option>`).join("");
 
     container.innerHTML = `
         <div class="booknow-grid">
