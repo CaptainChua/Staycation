@@ -3237,14 +3237,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <button type="button" class="btn secondary" id="f_discountBtn" onclick="showDiscount()">＋ Add discount</button>
                 <input type="number" id="f_discount" value="0" min="0" oninput="recalc()" placeholder="0" style="display:none;">
             </div>
-            <div class="field full">
+            <div class="field">
                 <label>Total amount payable (₱) <span class="muted">— auto-calculated</span></label>
                 <input type="number" id="f_total" readonly>
-                <div class="breakdown" id="f_breakdown"></div>
             </div>
-            <div class="field full">
+            <div class="field">
                 <label>Balance upon check-in (₱)</label>
                 <input type="text" id="f_balance" readonly>
+            </div>
+            <div class="field full">
+                <div class="breakdown" id="f_breakdown"></div>
             </div>
 
             <div class="field full">
