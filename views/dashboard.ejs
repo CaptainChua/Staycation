@@ -667,6 +667,9 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .field{ display:flex; flex-direction:column; gap:5px; }
 .field.full{ grid-column:1 / -1; }
+/* three-across row (Time of stay · Check-in time · Check-out time) */
+.tsrow{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+@media (max-width:640px){ .tsrow{ grid-template-columns:1fr; } }
 .field label{ font-size:12px; color:#666; }
 .field input, .field select, .field textarea{
     padding:10px;
@@ -3134,6 +3137,30 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 </div>
             </div>
 
+            <div class="tsrow">
+                <div class="field">
+                    <label>Time of stay</label>
+                    <select id="f_stay" onchange="onStayChange()">
+                        <option value="6">6 hrs — ₱999</option>
+                        <option value="10">10 hrs — ₱1,599</option>
+                        <option value="21">21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)</option>
+                    </select>
+                </div>
+                <div class="field">
+                    <label>Check-in time</label>
+                    <select id="f_checkinTime" onchange="onCheckinTimeSelChange()"></select>
+                    <input type="time" id="f_checkinTimeCustom" style="display:none; margin-top:6px;" onchange="onStayChange()">
+                </div>
+                <div class="field">
+                    <label>Check-out time <span class="muted">(auto)</span></label>
+                    <input type="text" id="f_checkoutTime" readonly>
+                </div>
+            </div>
+            <div class="field">
+                <label>Extend hr <span class="muted">(₱150/hr)</span></label>
+                <input type="number" id="f_extend" value="0" min="0" oninput="onExtendChange()">
+            </div>
+
             <div class="field full">
                 <label>Haven</label>
                 <select id="f_haven" onchange="onHavenChange()"></select>
@@ -3154,29 +3181,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <div class="field full">
                 <label>Contact number</label>
                 <input type="text" id="f_contact" placeholder="09xx xxx xxxx">
-            </div>
-
-            <div class="field">
-                <label>Time of stay</label>
-                <select id="f_stay" onchange="onStayChange()">
-                    <option value="6">6 hrs — ₱999</option>
-                    <option value="10">10 hrs — ₱1,599</option>
-                    <option value="21">21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)</option>
-                </select>
-            </div>
-            <div class="field">
-                <label>Extend hr <span class="muted">(₱150/hr)</span></label>
-                <input type="number" id="f_extend" value="0" min="0" oninput="onExtendChange()">
-            </div>
-
-            <div class="field">
-                <label>Check-in time</label>
-                <select id="f_checkinTime" onchange="onCheckinTimeSelChange()"></select>
-                <input type="time" id="f_checkinTimeCustom" style="display:none; margin-top:6px;" onchange="onStayChange()">
-            </div>
-            <div class="field">
-                <label>Check-out time <span class="muted">(auto)</span></label>
-                <input type="text" id="f_checkoutTime" readonly>
             </div>
 
             <div class="field full">
@@ -3219,11 +3223,6 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <option>Maribank</option>
                     <option>Other bank</option>
                 </select>
-            </div>
-
-            <div class="field full">
-                <label>Reference no. <span class="muted">(GCash / bank transaction no. — optional)</span></label>
-                <input type="text" id="f_reference" placeholder="e.g. 1234 567 890123">
             </div>
 
             <div class="field">
@@ -6518,7 +6517,6 @@ function openModal(id){
         setField("f_deposit", b.deposit === undefined ? PRICING.deposit : b.deposit);
         setDiscountField(b.discount || 0);
         setField("f_method", b.method || "GCash");
-        setField("f_reference", b.reference || "");
         setField("f_down", b.downpayment || 0);
         setField("f_downDate", b.dpDate || (b.bookedAt ? String(b.bookedAt).slice(0, 10) : (b.checkin || ""))); paintDpdPill();
         setField("f_notes", b.notes || "");
@@ -6549,7 +6547,6 @@ function openModal(id){
         setField("f_deposit", PRICING.deposit);
         setDiscountField(0);
         setField("f_method", "GCash");
-        setField("f_reference", "");
         setField("f_down", 0);
         setField("f_downDate", iso(today())); paintDpdPill();
         setField("f_notes", "");
@@ -7395,7 +7392,7 @@ async function saveBooking(){
         deposit: Number(document.getElementById("f_deposit").value) || 0,
         discount: Number(document.getElementById("f_discount").value) || 0,
         method: document.getElementById("f_method").value,
-        reference: document.getElementById("f_reference").value.trim(),
+        reference: (bookings.find(x => x.id === editingId) || {}).reference || "",   // Reference no. field removed from the form; preserve any existing value on edit
         downpayment: Number(document.getElementById("f_down").value) || 0,
         dpDate: (document.getElementById("f_downDate") || {}).value || null,   // date the downpayment was collected (for cash-basis "Collected")
         notes: document.getElementById("f_notes").value.trim(),
