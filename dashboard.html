@@ -3348,6 +3348,19 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="file" id="extendProofFile" accept="image/*" onchange="onExtendProofChange(this)">
                 </label>
             </div>
+            <div class="proof-block">
+                <h3>Resched Fee <span class="muted" style="font-weight:400;font-size:13px;">— Reschedule</span></h3>
+                <div class="proof-meta" id="reschedMeta"></div>
+                <span class="proof-thumb" id="reschedProofThumb" style="display:none;">
+                    <img id="reschedProofImg" class="proof-img" alt="resched-fee proof" onclick="openProofImg(this.src)">
+                    <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('resched')">✕</button>
+                </span>
+                <label class="proof-upload" data-proof="resched">
+                    <span class="pu-ico"><svg viewBox="0 0 24 24"><path d="M12 16V5"/><path d="m7 10 5-5 5 5"/><path d="M5 19h14"/></svg></span>
+                    <span class="pu-body"><b>Upload resched-fee proof</b><small class="pu-name" id="reschedProofName">No file chosen</small></span>
+                    <input type="file" id="reschedProofFile" accept="image/*" onchange="onReschedProofChange(this)">
+                </label>
+            </div>
         </div>
 
         <div id="bkPage3" style="display:none;">
@@ -5501,6 +5514,7 @@ function viewBooking(id){
     add(b.balanceProof, "Balance proof");
     add(b.addonProof, "Add-on proof");
     add(b.extendProof, "Additional-hours proof");
+    add(b.reschedProof, "Resched-fee proof");
     add(b.depositProof, "Deposit proof");
     (b.payments || []).forEach(p => add(p.proof, (p.category || "Payment") + " proof"));
     const photosHtml = items.length
@@ -6581,7 +6595,7 @@ function closeModal(){
 }
 
 /* ---------- booking modal: page 2 (proof of payment) ---------- */
-let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false, extendProofData = null;
+let downProofData = null, addonProofData = null, balProofData = null, balProofDirty = false, extendProofData = null, reschedProofData = null;
 function bkGoPage(n){
     document.getElementById("bkPage1").style.display = n === 1 ? "" : "none";
     document.getElementById("bkPage2").style.display = n === 2 ? "" : "none";
@@ -6748,9 +6762,20 @@ async function downloadConfirmation(){
     const el = document.getElementById("bkConfirm");
     if(!el) return;
     el.innerHTML = buildConfirmationHTML();   // fresh content
+    // The preview wrapper crops the card: it has overflow:hidden and a SHORT (scaled) height.
+    // When we un-scale the card to full height for capture, that clip would cut off the bottom of
+    // the PDF — so temporarily let the wrapper grow, then restore the preview.
+    const wrap = document.getElementById("bkcWrap");
     const prev = el.style.transform;
+    const prevWrapOverflow = wrap ? wrap.style.overflow : "";
+    const prevWrapHeight   = wrap ? wrap.style.height   : "";
     el.style.transform = "none";              // capture at full 760px (not the scaled preview)
-    const restore = () => { el.style.transform = prev; fitConfirmPreview(); };
+    if(wrap){ wrap.style.overflow = "visible"; wrap.style.height = "auto"; }
+    const restore = () => {
+        el.style.transform = prev;
+        if(wrap){ wrap.style.overflow = prevWrapOverflow; wrap.style.height = prevWrapHeight; }
+        fitConfirmPreview();
+    };
     // Wait for the web fonts (Playfair/Mulish) to actually apply + two frames, so the card is at its
     // TRUE final height before we measure. Measuring too early (fonts not yet applied) shifted the
     // height and made the downloaded PDF add blank space on top and crop the footer at the bottom.
@@ -6965,6 +6990,7 @@ const PROOF_CFG = {
     down:   { nameId:"downProofName",   imgId:"downProofImg",   thumbId:"downProofThumb",   fileId:"downProofFile"   },
     addon:  { nameId:"addonProofName",  imgId:"addonProofImg",  thumbId:"addonProofThumb",  fileId:"addonProofFile"  },
     extend: { nameId:"extendProofName", imgId:"extendProofImg", thumbId:"extendProofThumb", fileId:"extendProofFile" },
+    resched:{ nameId:"reschedProofName",imgId:"reschedProofImg",thumbId:"reschedProofThumb",fileId:"reschedProofFile"},
     bal:    { nameId:"balProofName",    imgId:"balProofImg",    thumbId:"balProofThumb"    }
 };
 let addonShownPayIdx = -1;   // payments[] index when the add-ons image is a collection's photo (else -1)
@@ -6977,6 +7003,7 @@ function applyProofFile(type, f){
         if(type === "down")   downProofData = dataUrl;
         if(type === "addon")  addonProofData = dataUrl;
         if(type === "extend") extendProofData = dataUrl;
+        if(type === "resched") reschedProofData = dataUrl;
         if(type === "bal"){ balProofData = dataUrl; balProofDirty = true; }
         const img = document.getElementById(cfg.imgId);
         if(img){ img.src = dataUrl; img.style.display = "block"; }
@@ -6993,6 +7020,7 @@ function deleteProofImg(type){
     if(type === "down")  downProofData = null;
     else if(type === "addon") addonProofData = null;
     else if(type === "extend") extendProofData = null;
+    else if(type === "resched") reschedProofData = null;
     else if(type === "bal"){ balProofData = null; balProofDirty = true; }
     const img = document.getElementById(cfg.imgId); if(img){ img.src = ""; img.style.display = "none"; }
     const t = cfg.thumbId && document.getElementById(cfg.thumbId); if(t) t.style.display = "none";
@@ -7016,6 +7044,7 @@ function deleteCollectionPhoto(idx){
 function onDownProofChange(input){ if(input.files[0]) applyProofFile("down", input.files[0]); }
 function onAddonProofChange(input){ if(input.files[0]) applyProofFile("addon", input.files[0]); }
 function onExtendProofChange(input){ if(input.files[0]) applyProofFile("extend", input.files[0]); }
+function onReschedProofChange(input){ if(input.files[0]) applyProofFile("resched", input.files[0]); }
 function onBalProofChange(input){ if(input.files[0]) applyProofFile("bal", input.files[0]); }
 
 // drag & drop onto any proof-upload card (delegated; bal card is re-rendered)
@@ -7177,6 +7206,18 @@ function renderProofPage(b){
     document.getElementById("extendProofName").textContent = extendProofData ? "Photo attached ✓" : "No file chosen";
     if(extendProofData){ eImg.src = extendProofData; eThumb.style.display = "inline-block"; }
     else { eImg.src = ""; eThumb.style.display = "none"; }
+
+    // Resched Fee — flat reschedule fee + its own manual proof
+    const reschedFee = b ? (Number(b.reschedFee) || 0) : (document.getElementById("f_resched").checked ? PRICING.reschedFee : 0);
+    reschedProofData = (b && b.reschedProof) || null;
+    document.getElementById("reschedMeta").innerHTML =
+        `<span>Reschedule fee${reschedFee ? " · " + peso(PRICING.reschedFee) : ""}</span><span>Total <strong>${peso(reschedFee)}</strong></span>`;
+    const rImg = document.getElementById("reschedProofImg");
+    const rThumb = document.getElementById("reschedProofThumb");
+    document.getElementById("reschedProofFile").value = "";
+    document.getElementById("reschedProofName").textContent = reschedProofData ? "Photo attached ✓" : "No file chosen";
+    if(reschedProofData){ rImg.src = reschedProofData; rThumb.style.display = "inline-block"; }
+    else { rImg.src = ""; rThumb.style.display = "none"; }
 }
 // replace one collection's photo (by its index in the payments array) — saves now
 function replaceCollectionProof(idx, input){
@@ -7408,6 +7449,7 @@ async function saveBooking(){
         downProof: downProofData || null,
         addonProof: addonProofData || null,
         extendProof: extendProofData || null,
+        reschedProof: reschedProofData || null,
         balanceProof: balProofData || null,
         ids: idsData.slice(),
         idOptOut: document.getElementById("f_idOptOut").checked
@@ -7458,7 +7500,7 @@ async function saveBooking(){
             method: data.method,
             downpayment: 0,
             notes: data.notes,
-            downProof: null, addonProof: null, extendProof: null, balanceProof: null,
+            downProof: null, addonProof: null, extendProof: null, reschedProof: null, balanceProof: null,
             ids: data.ids, idOptOut: data.idOptOut,
             bookedBy: data.bookedBy, bookedAt: data.bookedAt,   // commission stays on the primary only
             _sid: seg.sid                                        // stable id for retry-safe upsert (stripped before save)
