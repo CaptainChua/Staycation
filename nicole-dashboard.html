@@ -2234,8 +2234,7 @@
   function aUpdateStayOptions(keep){
     const sel = document.getElementById("a_stay");
     const ci = document.getElementById("a_checkin").value;
-    const wd = ci ? new Date(ci + "T00:00:00").getDay() : 1;
-    const opts = (wd === 6) ? STAY_OPTIONS.filter(o => o[0] === 21) : STAY_OPTIONS;
+    const opts = STAY_OPTIONS;   // Nicole may book 6/10/21 any day, incl. Saturday (same as the main dashboard admin)
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);
@@ -2335,7 +2334,6 @@
     if(kids > PRICING.maxKids){ alert(`Maximum of ${PRICING.maxKids} kids (0–13 yrs) per unit.`); return; }
     if(!checkin || !checkout || checkout < checkin){ alert("Please enter a valid check-in and check-out date."); return; }
     const stayHours = Number(document.getElementById("a_stay").value);
-    if(new Date(checkin + "T00:00:00").getDay() === 6 && stayHours !== 21){ alert("Saturday check-ins are 21 hours only."); return; }
     const checkinTime = aCheckinTimeValue();
     const data = {
       haven: document.getElementById("a_haven").value,
