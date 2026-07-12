@@ -693,16 +693,37 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .bk-tab:hover{ color:#444; }
 .bk-tab.active{ color:#bd6e3f; border-bottom-color:#bd6e3f; }
 /* ===== Proof of Payment tab (warm theme) ===== */
-#bkPage2{ display:grid; grid-template-columns:1fr 1fr; gap:16px 22px; }
-.proof-summary{ grid-column:1 / -1; display:grid; grid-template-columns:repeat(3,1fr); gap:16px 10px; background:#faf3ea; border:1px solid #f0e2cf; border-radius:14px; padding:16px 18px; }
-.proof-summary .ps-item{ min-width:0; }
-.proof-summary .ps-label{ display:block; font-size:10.5px; color:#a3937e; text-transform:uppercase; letter-spacing:.5px; font-weight:700; margin-bottom:4px; }
-.proof-summary .ps-val{ font-size:17px; font-weight:700; color:#33291f; }
-.proof-summary .ps-val.bal{ color:#bd6e3f; }
-.proof-summary .ps-val.paid{ color:#3f9e6a; }
-.proof-block{ min-width:0; }
+#bkPage2{ display:grid; grid-template-columns:minmax(0,1fr) 300px; gap:22px; align-items:start; }
+.proof-main{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+.proof-duo{ display:grid; grid-template-columns:1fr 1fr; gap:16px; }
+.proof-side{ display:flex; flex-direction:column; gap:16px; position:sticky; top:0; }
+/* each proof section is a soft cream card */
+.proof-block{ min-width:0; background:#faf6ef; border:1px solid #efe6d8; border-radius:16px; padding:18px 20px; }
+.proof-block.compact{ display:flex; align-items:center; justify-content:space-between; gap:16px; flex-wrap:wrap; }
+.proof-block.compact h3{ margin:0; }
+.proof-block.compact .proof-meta{ background:none; border:none; padding:0; margin:0; flex:0 0 auto; }
+.proof-block.compact .proof-upload{ flex:0 0 auto; min-width:210px; }
 .proof-block-wide{ grid-column:1 / -1; }
 .proof-block h3{ font-family:'Playfair Display',Georgia,serif; font-size:18px; font-weight:700; color:#33291f; margin:2px 0 10px; }
+/* dark Total-payable summary card */
+.proof-total{ background:#2c2016; color:#f3ece1; border-radius:16px; padding:18px 20px; }
+.proof-total .pt-cap{ font-size:10.5px; letter-spacing:1px; text-transform:uppercase; color:#c9b79f; font-weight:700; }
+.proof-total .pt-big{ font-family:'Playfair Display',Georgia,serif; font-size:32px; font-weight:800; margin:4px 0 12px; }
+.proof-total .pt-rows{ border-top:1px solid rgba(255,255,255,.14); padding-top:12px; display:flex; flex-direction:column; gap:9px; }
+.proof-total .pt-row{ display:flex; align-items:center; justify-content:space-between; font-size:13.5px; color:#d8ccbc; }
+.proof-total .pt-row b{ color:#fff; font-weight:700; }
+.proof-total .pt-row .paid{ color:#7fd6a3; }
+.proof-total .pt-row .bal{ color:#e0a878; }
+.proof-total .pt-status{ display:flex; align-items:center; justify-content:space-between; margin-top:12px; padding:11px 14px; background:rgba(255,255,255,.06); border-radius:10px; font-size:12px; text-transform:uppercase; letter-spacing:.5px; color:#c9b79f; font-weight:700; }
+.proof-total .pt-status b{ color:#e0a878; letter-spacing:.3px; }
+/* proof checklist card */
+.proof-checklist{ background:#faf6ef; border:1px solid #efe6d8; border-radius:16px; padding:18px 20px; }
+.proof-checklist h4{ font-family:'Playfair Display',Georgia,serif; font-size:16px; font-weight:700; color:#33291f; margin:0 0 12px; }
+.proof-checklist .pc-item{ display:flex; align-items:center; gap:11px; font-size:13.5px; color:#6f5b46; padding:6px 0; }
+.proof-checklist .pc-dot{ width:19px; height:19px; border-radius:50%; border:2px solid #d9c9b3; flex:none; display:flex; align-items:center; justify-content:center; }
+.proof-checklist .pc-item.done .pc-dot{ background:#3f9e6a; border-color:#3f9e6a; }
+.proof-checklist .pc-item.done .pc-dot::after{ content:""; width:9px; height:5px; border-left:2px solid #fff; border-bottom:2px solid #fff; transform:rotate(-45deg) translateY(-1px); }
+.proof-checklist .pc-item.done{ color:#33291f; font-weight:600; }
 .proof-del{ display:inline-block; margin-top:8px; font-size:12px; color:#c0283d; cursor:pointer; }
 .proof-del:hover{ text-decoration:underline; }
 .proof-meta{ display:flex; align-items:center; justify-content:space-between; gap:10px; flex-wrap:wrap; font-size:13px; color:#6f5b46; background:#faf6ef; border:1px solid #efe6d8; border-radius:11px; padding:12px 14px; margin-bottom:10px; line-height:1.5; }
@@ -774,7 +795,8 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .img-lightbox{ position:fixed; inset:0; background:rgba(0,0,0,.85); display:none; align-items:center; justify-content:center; z-index:120; cursor:zoom-out; }
 .img-lightbox.show{ display:flex; }
 .img-lightbox img{ max-width:92vw; max-height:92vh; border-radius:8px; }
-@media (max-width:560px){ #bkPage2{ grid-template-columns:1fr; } }
+@media (max-width:860px){ #bkPage2{ grid-template-columns:1fr; } .proof-side{ position:static; } }
+@media (max-width:560px){ .proof-duo{ grid-template-columns:1fr; } }
 
 /* guest rows in the form */
 .guest-row-edit{ display:grid; grid-template-columns:1fr 1fr 90px auto; gap:8px; margin-bottom:8px; align-items:center; }
@@ -3282,7 +3304,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
         </div><!-- /bkPage1 -->
 
         <div id="bkPage2" style="display:none;">
-            <div class="proof-summary" id="proofSummary"></div>
+            <div class="proof-main">
             <div class="proof-block">
                 <h3>Downpayment</h3>
                 <div class="proof-meta" id="downMeta"></div>
@@ -3313,6 +3335,7 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                 <h3>Balance</h3>
                 <div id="balProofList"></div>
             </div>
+            <div class="proof-duo">
             <div class="proof-block">
                 <h3>Add-Ons <span class="muted" style="font-weight:400;font-size:13px;">— Swimpass &amp; Towels</span></h3>
                 <div class="proof-meta" id="addonMeta"></div>
@@ -3340,9 +3363,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="file" id="extendProofFile" accept="image/*" onchange="onExtendProofChange(this)">
                 </label>
             </div>
-            <div class="proof-block">
-                <h3>Resched Fee <span class="muted" style="font-weight:400;font-size:13px;">— Reschedule</span></h3>
-                <div class="proof-meta" id="reschedMeta"></div>
+            </div><!-- /proof-duo -->
+            <div class="proof-block compact">
+                <div>
+                    <h3>Resched Fee <span class="muted" style="font-weight:400;font-size:13px;">— Reschedule</span></h3>
+                    <div class="proof-meta" id="reschedMeta"></div>
+                </div>
                 <span class="proof-thumb" id="reschedProofThumb" style="display:none;">
                     <img id="reschedProofImg" class="proof-img" alt="resched-fee proof" onclick="openProofImg(this.src)">
                     <button type="button" class="proof-imgdel" title="Delete photo" onclick="deleteProofImg('resched')">✕</button>
@@ -3353,6 +3379,11 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <input type="file" id="reschedProofFile" accept="image/*" onchange="onReschedProofChange(this)">
                 </label>
             </div>
+            </div><!-- /proof-main -->
+            <aside class="proof-side">
+                <div class="proof-total" id="proofSummary"></div>
+                <div class="proof-checklist" id="proofChecklist"></div>
+            </aside>
         </div>
 
         <div id="bkPage3" style="display:none;">
@@ -7062,14 +7093,17 @@ function renderProofPage(b){
     const sColl  = b ? collectedSum(b) : 0;
     const sPaid  = sDown + sColl;
     const sBal   = Math.max(0, sTotal - sPaid);
-    const sStatus = sPaid >= sTotal && sTotal > 0 ? "Fully paid" : sPaid > 0 ? "Partial" : "Unpaid";
+    const sStatus = sPaid >= sTotal && sTotal > 0 ? "Fully Paid" : sPaid > 0 ? "Partially Paid" : "Unpaid";
     document.getElementById("proofSummary").innerHTML =
-        `<div class="ps-item"><span class="ps-label">Total payable</span><span class="ps-val">${peso(sTotal)}</span></div>` +
-        `<div class="ps-item"><span class="ps-label">Downpayment</span><span class="ps-val">${peso(sDown)}</span></div>` +
-        `<div class="ps-item"><span class="ps-label">Collected</span><span class="ps-val">${peso(sColl)}</span></div>` +
-        `<div class="ps-item"><span class="ps-label">Total paid</span><span class="ps-val paid">${peso(sPaid)}</span></div>` +
-        `<div class="ps-item"><span class="ps-label">Balance</span><span class="ps-val bal">${peso(sBal)}</span></div>` +
-        `<div class="ps-item"><span class="ps-label">Status</span><span class="ps-val">${sStatus}</span></div>`;
+        `<div class="pt-cap">Total payable</div>` +
+        `<div class="pt-big">${peso(sTotal)}</div>` +
+        `<div class="pt-rows">` +
+            `<div class="pt-row"><span>Downpayment</span><b>${peso(sDown)}</b></div>` +
+            (sColl > 0 ? `<div class="pt-row"><span>Collected</span><b>${peso(sColl)}</b></div>` : "") +
+            `<div class="pt-row"><span>Total paid</span><b class="paid">${peso(sPaid)}</b></div>` +
+            `<div class="pt-row"><span>Balance</span><b class="bal">${peso(sBal)}</b></div>` +
+        `</div>` +
+        `<div class="pt-status"><span>Status</span><b>${sStatus}</b></div>`;
 
     downProofData = (b && b.downProof) || null;
     const down = b ? (Number(b.downpayment) || 0) : (Number(document.getElementById("f_down").value) || 0);
@@ -7210,6 +7244,20 @@ function renderProofPage(b){
     document.getElementById("reschedProofName").textContent = reschedProofData ? "Photo attached ✓" : "No file chosen";
     if(reschedProofData){ rImg.src = reschedProofData; rThumb.style.display = "inline-block"; }
     else { rImg.src = ""; rThumb.style.display = "none"; }
+
+    // proof checklist — ticked once each proof photo is attached (manual upload or a collection's photo)
+    const _ckEl = document.getElementById("proofChecklist");
+    if(_ckEl){
+        const _ck = [
+            ["Downpayment proof", !!downProofData],
+            ["Balance proof", !!balProofData || balPays.some(p => p.proof)],
+            ["Add-ons proof", !!addonShown],
+            ["Additional-hours proof", !!extendProofData],
+            ["Resched-fee proof", !!reschedProofData]
+        ];
+        _ckEl.innerHTML = `<h4>Proof checklist</h4>` + _ck.map(it =>
+            `<div class="pc-item${it[1] ? " done" : ""}"><span class="pc-dot"></span>${it[0]}</div>`).join("");
+    }
 }
 // replace one collection's photo (by its index in the payments array) — saves now
 function replaceCollectionProof(idx, input){
