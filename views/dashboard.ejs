@@ -7592,6 +7592,7 @@ async function saveBooking(){
         data.downProof   = await _offloadImg(data.downProof);
         data.addonProof  = await _offloadImg(data.addonProof);
         data.extendProof = await _offloadImg(data.extendProof);
+        data.reschedProof= await _offloadImg(data.reschedProof);
         data.balanceProof= await _offloadImg(data.balanceProof);
 
         if(editingId){
