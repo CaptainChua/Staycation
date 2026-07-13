@@ -12,11 +12,11 @@ const SETTINGS_KEY = "shph_settings";
 const DEFAULT_SETTINGS = {
     pricing: {
         stay6: 999,
-        stay10: 1599,
-        stay21Weekday: 1799,   // Sun–Thu
+        stay10: 999,           // Jul–Aug promo
+        stay21Weekday: 1599,   // Sun–Thu
         stay21Weekend: 2099,   // Fri/Sat
-        longWeekday: 1699,     // 3+ nights, Sun–Thu
-        longWeekend: 1899,     // 3+ nights, Fri/Sat
+        longWeekday: 1599,     // 3+ nights, Sun–Thu
+        longWeekend: 2099,     // 3+ nights, Fri/Sat
         holidayNight: 2099,    // overnight night on a holiday
         holidayDayUse: 1799,   // 6–10h day-use on a holiday
         deposit: 1000,
@@ -28,7 +28,7 @@ const DEFAULT_SETTINGS = {
         towelRate: 50,         // towel rent each
         towelMaxPerPax: 2,     // towels allowed per pax
         maxDays: 14,           // longest allowed booking
-        offer6: true,          // show 6-hour option on the website
+        offer6: false,         // 6-hour tier retired (Jul–Aug promo: 10-hour day-use only)
         offer10: true,         // show 10-hour option
         offer21: true          // show 21-hour / overnight option
     },

@@ -3887,12 +3887,12 @@ function checkoutTimeStr(b){
 
 /* ---------- pricing ---------- */
 const PRICING = {
-    stay6: 999,
-    stay10: 1599,
-    stay21Weekday: 1799,   // Sunday–Thursday
+    stay6: 999,            // legacy day-use tier (kept for old bookings; hidden via offer6=false)
+    stay10: 999,           // Jul–Aug promo: 10-hour day-use
+    stay21Weekday: 1599,   // Sunday–Thursday
     stay21Weekend: 2099,   // Friday or Saturday (based on check-in day)
-    longWeekday: 1699,     // 3+ nights · Sunday–Thursday (per night)
-    longWeekend: 1899,     // 3+ nights · Friday or Saturday (per night)
+    longWeekday: 1599,     // 3+ nights · Sunday–Thursday (per night)
+    longWeekend: 2099,     // 3+ nights · Friday or Saturday (per night)
     holidayNight: 2099,    // overnight night that falls on a holiday
     holidayDayUse: 1799,   // 6–10h day-use on a holiday
     swimRegular: 150,      // per pax
@@ -6151,17 +6151,28 @@ function readGuests(){
 
 // limit time-of-stay options by check-in day: Sat = 21h only; Sun–Fri = 6/10/21h
 // (admins are exempt — they may book 6h/10h on Saturdays too, e.g. for a free morning slot)
-const STAY_OPTIONS = [
-    [6,  "6 hrs — ₱999"],
-    [10, "10 hrs — ₱1,599"],
-    [21, "21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"],
-    ["multi", "Multiple nights — set check-out date"]
-];
+// Stay options are built from the LIVE rates (PRICING, synced from the Rates & Add-ons
+// settings) and which durations the owner offers (offer6/offer10/offer21 toggles), so the
+// prices shown always match what's charged and a disabled duration (e.g. 6-hour) drops out.
+function stayOptions(){
+    const s = ((typeof loadSettings === "function" ? loadSettings() : null) || {}).pricing || {};
+    const on = k => s[k] !== false;   // offered unless explicitly turned off
+    const out = [];
+    if(on("offer6"))  out.push([6,  `6 hrs — ${peso(PRICING.stay6)}`]);
+    if(on("offer10")) out.push([10, `10 hrs — ${peso(PRICING.stay10)}`]);
+    if(on("offer21")){
+        out.push([21, `21 hrs — ${peso(PRICING.stay21Weekday)} / ${peso(PRICING.stay21Weekend)} (Fri–Sat)`]);
+        out.push(["multi", "Multiple nights — set check-out date"]);
+    }
+    if(!out.length) out.push([21, `21 hrs — ${peso(PRICING.stay21Weekday)} / ${peso(PRICING.stay21Weekend)} (Fri–Sat)`]);
+    return out;
+}
 function updateStayOptions(keep){
     const sel = document.getElementById("f_stay");
     const checkin = document.getElementById("f_checkin").value;
     const wd = checkin ? new Date(checkin + "T00:00:00").getDay() : 1; // 6 = Saturday
-    const opts = (wd === 6 && !isAdminUser()) ? STAY_OPTIONS.filter(o => o[0] === 21 || o[0] === "multi") : STAY_OPTIONS;
+    let opts = stayOptions();
+    if(wd === 6 && !isAdminUser()) opts = opts.filter(o => o[0] === 21 || o[0] === "multi");
     const want = String(keep != null ? keep : sel.value);
     sel.innerHTML = opts.map(o => `<option value="${o[0]}">${o[1]}</option>`).join("");
     sel.value = opts.some(o => String(o[0]) === want) ? want : String(opts[0][0]);

@@ -2174,9 +2174,9 @@
 
   /* ---------- add booking (saves to the shared Calendar/Bookings data) ---------- */
   const HAVENS = ["Haven 1","Haven 2","Haven 3","Haven 4","Haven 5","Haven 7","Haven 8","Casa Bienca"];
-  const PRICING = { stay6:999, stay10:1599, stay21Weekday:1799, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
+  const PRICING = { stay6:999, stay10:999, stay21Weekday:1599, stay21Weekend:2099, swimRegular:150, swimHoliday:300,
     towel:50, extendPerHr:150, deposit:1000, baseIncludedPax:2, addPax:300, addPaxMinAge:5, maxPax:5, maxAdults:4, maxKids:2, kidMaxAge:13 };
-  const STAY_OPTIONS = [[6,"6 hrs — ₱999"],[10,"10 hrs — ₱1,599"],[21,"21 hrs — ₱1,799 / ₱2,099 (Fri–Sat)"]];
+  const STAY_OPTIONS = [[10,"10 hrs — ₱999"],[21,"21 hrs — ₱1,599 / ₱2,099 (Fri–Sat)"]];   // Jul–Aug promo: 6-hour retired
 
   function billablePax(g){ return (g||[]).filter(x => x.age != null && Number(x.age) >= PRICING.addPaxMinAge).length; }
   function addPaxFee(g){ return Math.max(0, billablePax(g) - PRICING.baseIncludedPax) * PRICING.addPax; }
