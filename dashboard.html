@@ -12090,6 +12090,7 @@ async function toggleHavenLive(i){
     _togglingLive = true;
     const next = (h.live === false);   // currently offline → go Live; otherwise → go Offline
     h.live = next;
+    h.updatedAt = new Date().toISOString();   // stamp so this change wins the seed-bridge merge everywhere (else a stale local copy keeps showing it Live)
     try{
         const ok = await saveOneRecord("staycation_havens", h);
         if(!ok){ h.live = !next; alert("⚠️ Couldn't update on the server (slow / offline). Please try again."); return; }
@@ -12115,7 +12116,8 @@ async function saveHaven(){
             price: document.getElementById("hvPrice").value.trim(),
             description: document.getElementById("hvDesc").value,
             amenities: hvDraftAmen.map(s => s.trim()).filter(Boolean),
-            live: !document.getElementById("hvLive") || document.getElementById("hvLive").checked   // Live/Offline (preserve through edits)
+            live: !document.getElementById("hvLive") || document.getElementById("hvLive").checked,   // Live/Offline (preserve through edits)
+            updatedAt: new Date().toISOString()   // stamp so edits win the seed-bridge merge across browsers
         };
         // PER-RECORD save: the server offloads every gallery/main-image photo to a durable ref,
         // so the images are never lost and one haven's save can't overwrite the others.
@@ -12174,7 +12176,7 @@ async function onDrop(e, targetIndex){
     // persist the new order PER-RECORD: set order=index and save each haven whose position changed,
     // so the reorder survives the server's id-keyed merge (a whole-array write would be reordered away).
     const changed = [];
-    listings.forEach((h, i) => { if(h.order !== i){ h.order = i; changed.push(h); } });
+    listings.forEach((h, i) => { if(h.order !== i){ h.order = i; h.updatedAt = new Date().toISOString(); changed.push(h); } });
     for(const h of changed){ await saveOneRecord("staycation_havens", h); }
     setLocalKey("staycation_havens", listings);
 }
@@ -12198,7 +12200,9 @@ async function addListing(){
         gallery: [],
         price: "₱0 / night",
         description: "Describe this haven...",
-        amenities: ["📶 Fast WiFi"]
+        amenities: ["📶 Fast WiFi"],
+        live: true,
+        updatedAt: new Date().toISOString()   // stamp from creation so later edits/offline reliably win the seed-bridge merge
     };
     const ok = await saveOneRecord("staycation_havens", item);   // per-record: unique id, no collision
     _addingListing = false;
