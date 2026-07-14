@@ -506,12 +506,18 @@ function renderPage(name) {
     // booking saved via another instance (e.g. a website booking), so it would
     // silently vanish from the dashboard or a taken slot would look free. Read the
     // live Firestore list for the seed; fall back to the cache if that read fails.
-    try {
-      const freshBookings = await store.readFreshList("shph_bookings_v3");
-      if (Array.isArray(freshBookings)) seed.shph_bookings_v3 = freshBookings;
-    } catch (e) {
-      console.warn("[render] fresh bookings read failed for", name, "—", e.message);
-    }
+    // EVERY id-keyed list store — not just bookings — must reflect the LIVE Firestore list, or a
+    // record saved via another serverless instance (a partner, user, haven, booking…) is missing
+    // from this warm instance's cache and "vanishes" on the next page load. Read them fresh (in
+    // parallel, so it's ~one round-trip) and fall back to the cached copy per-key on failure.
+    await Promise.all([...MERGE_LIST_KEYS].map(async (_key) => {
+      try {
+        const fresh = await store.readFreshList(_key);
+        if (Array.isArray(fresh)) seed[_key] = fresh;
+      } catch (e) {
+        console.warn("[render] fresh read failed for", _key, "—", e.message);
+      }
+    }));
     // Website Maintenance switch: guest-facing pages show a "back soon" notice while it's on. Read
     // the flag FRESH so a stale per-instance cache can't keep the site up after the owner takes it
     // down. The dashboard/admin pages are NOT gated, so the owner can always flip it back.
