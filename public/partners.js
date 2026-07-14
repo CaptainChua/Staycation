@@ -32,6 +32,29 @@ function _savePartnerRecord(record, list){
 function savePartnersStore(arr){ localStorage.setItem(PARTNERS_KEY, JSON.stringify(arr)); }
 function partnerById(id){ return loadPartners().find(p => p.id === id) || null; }
 
+// Pull the LIVE partner list from the server and reconcile it into local storage, then render.
+// Server wins on existence so a stale/deleted LOCAL copy can never hide a partner that's really
+// there; any local-only partner that hasn't finished syncing is preserved. This self-heals a
+// browser whose cached list is out of sync (no console commands needed).
+async function reconcilePartners(afterFn){
+    try{
+        const r = await fetch("/api/kv/" + PARTNERS_KEY, { cache:"no-store" });
+        if(r.ok){
+            const server = await r.json();
+            if(Array.isArray(server)){
+                let local = [];
+                try{ local = JSON.parse(localStorage.getItem(PARTNERS_KEY)) || []; }catch(e){ local = []; }
+                const byId = {};
+                server.forEach(p => { if(p && p.id != null) byId[String(p.id)] = p; });                                   // server authoritative
+                local.forEach(p => { if(p && p.id != null && !(String(p.id) in byId)) byId[String(p.id)] = p; });          // keep unsynced local-only
+                const merged = Object.keys(byId).map(k => byId[k]);
+                if(typeof setLocalKey === "function") setLocalKey(PARTNERS_KEY, merged); else savePartnersStore(merged);
+            }
+        }
+    }catch(e){ /* offline / blocked → fall back to whatever's local */ }
+    if(typeof afterFn === "function") afterFn();
+}
+
 /* ---------- Partner List ---------- */
 function renderPartners(){
     const tb = document.getElementById("partnersBody");
@@ -1075,11 +1098,12 @@ function pcRender(){
 }
 
 function partnersOnShowPage(page){
-    if(page === "partners") renderPartners();
-    else if(page === "commissions") renderCommissions();
-    else if(page === "partnerbookings") renderPartnerBookings();
-    else if(page === "prrooms") renderPrRooms();
-    else if(page === "users") renderPartnerLogins();
+    // partner-list-backed pages: reconcile from the live server first so a stale local cache can't hide partners
+    if(page === "partners") reconcilePartners(renderPartners);
+    else if(page === "commissions") reconcilePartners(renderCommissions);
+    else if(page === "partnerbookings") reconcilePartners(renderPartnerBookings);
+    else if(page === "prrooms") reconcilePartners(renderPrRooms);
+    else if(page === "users") reconcilePartners(renderPartnerLogins);
     else if(page === "board") renderBoard();
     else if(page === "inventory") renderInventory();
     if(page === "calendar" && window.__PARTNER__){ pcEnsure(); pcRender(); }   // partner month grid above the timeline
