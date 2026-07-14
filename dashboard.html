@@ -4,6 +4,7 @@
 
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
+<base href="/">   <!-- resolve every relative asset/link from root, so deep-link URLs like /admin/security-deposit still load partners.js, images, etc. -->
 <title>Dashboard - Staycation Haven PH</title>
 <link rel="icon" href="images/logo.png">
 
@@ -1330,7 +1331,7 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
     <div class="nav-item" data-page="board" onclick="showPage('board')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M3 9h18M8 13h8M8 16h5"/></svg></span> Board</div>
 
     <div class="nav-group">Main</div>
-    <div class="nav-item active" data-page="today" onclick="window.location.href='/todaysbooking.html'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
+    <div class="nav-item active" data-page="today" onclick="window.location.href='/admin/todays-booking'"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/><path d="m9 15 2 2 4-4"/></svg></span> Today's Booking <span class="nav-badge" id="todayBadge"></span></div>
     <div class="nav-item" data-page="calendar" onclick="showPage('calendar')"><span class="ico"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg></span> Calendar/Bookings</div>
     <div class="nav-item" data-page="guestform" onclick="showPage('guestform')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M5 3h11l3 3v15H5z"/><path d="M9 8h6M9 12h6M9 16h4"/><circle cx="12" cy="2.5" r="0"/></svg></span> Guest Form</div>
     <div class="nav-item" data-page="collections" onclick="showPage('collections')"><span class="ico"><svg viewBox="0 0 24 24"><path d="M3 4h18v4H3zM3 10h18v10H3z"/><path d="M7 14h4M7 17h7"/></svg></span> Collection Reports <span class="nav-badge" id="collectionsBadge"></span></div>
@@ -7699,13 +7700,43 @@ async function renderWebsiteVisits(){
         el.innerHTML = '<div class="muted" style="padding:6px 2px;">Could not load visits — try again.</div>';
     }
 }
-function showPage(page){
+// ---- deep-link routing: each sidebar page has its own /admin/<slug> URL (back/forward works) ----
+const PAGE_SLUGS = {
+    board:"board", calendar:"calendar-bookings", guestform:"guest-form",
+    collections:"collection-reports", website:"website", approval:"booking-approval",
+    deposit:"security-deposit", violations:"violations-damages",
+    partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner",
+    prrooms:"pr-rooms", addpartner:"add-partner", havens:"havens", booking:"rates-addons",
+    cleaners:"housekeeping", inventory:"inventory", finance:"finance", payments:"payments",
+    payroll:"payroll", bills:"bills", expenses:"expenses", analytics:"analytics",
+    users:"users", employees:"employees", assist:"assist", log:"log"
+};
+const SLUG_PAGES = {};
+for(const k in PAGE_SLUGS) SLUG_PAGES[PAGE_SLUGS[k]] = k;
+function pageFromPath(){
+    const m = String(location.pathname).match(/^\/admin\/([a-z0-9-]+)/i);
+    return (m && SLUG_PAGES[m[1].toLowerCase()]) || null;
+}
+// reflect the current page in the address bar (push = new history entry, replace = same entry)
+function syncPageUrl(page, replace){
+    const slug = PAGE_SLUGS[page];
+    if(!slug) return;                                   // pages without a slug don't touch the URL
+    const url = "/admin/" + slug;
+    if(location.pathname === url) return;
+    try{ history[replace ? "replaceState" : "pushState"]({ shpPage: page }, "", url); }catch(e){}
+}
+window.addEventListener("popstate", function(e){
+    const page = (e.state && e.state.shpPage) || pageFromPath();
+    if(page && document.getElementById("page-" + page)) showPage(page, "none");
+});
+function showPage(page, _nav){
     if(!pageAllowed(page)) return;   // access control
     document.querySelectorAll(".page").forEach(p =>
         p.classList.toggle("active", p.id === "page-" + page));
     document.querySelectorAll(".sidebar .nav-item").forEach(n =>
         n.classList.toggle("active", n.dataset.page === page));
     localStorage.setItem("shph_dashboard_page", page);   // remember across refreshes
+    if(_nav !== "none") syncPageUrl(page, _nav === "replace");   // keep the /admin/<slug> URL in sync
     if(page === "website") renderWebsiteVisits();
     // breadcrumb in the top bar
     const CRUMB = {
@@ -12930,10 +12961,10 @@ try{ if(localStorage.getItem("shph_dashboard_page") === "paymentapproval") local
 // remembered page. Access control still applies — showPage() ignores pages the user can't see.
 const BRANDED_PAGE = { "/nicole-board":"board", "/nicole-calendar":"calendar", "/nicole-guestform":"guestform", "/nicole-deposit":"deposit" };
 const _brandedPage = BRANDED_PAGE[location.pathname.replace(/\/+$/, "").toLowerCase()];
-const savedPage = _brandedPage || localStorage.getItem("shph_dashboard_page");
+const savedPage = pageFromPath() || _brandedPage || localStorage.getItem("shph_dashboard_page");
 // Bulletproof startup: a render error on the opening page must NEVER stop the sidebar /
 // permissions from initializing — otherwise the menu stays blank and the user is locked out.
-try { if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage); }
+try { if(savedPage && document.getElementById("page-" + savedPage)) showPage(savedPage, "replace"); }
 catch(_e){ console.error("[startup] showPage failed for", savedPage, _e); }
 try { applyPermissions(); }
 catch(_e){ console.error("[startup] applyPermissions failed", _e); }

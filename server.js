@@ -564,6 +564,23 @@ app.get("/nicole-calendar",  renderPage("dashboard"));
 app.get("/nicole-guestform", renderPage("dashboard"));
 app.get("/nicole-deposit",   renderPage("dashboard"));
 
+// Deep-link URL for every dashboard sidebar page — /admin/<slug>. All render the dashboard view
+// (which opens the matching section, detected client-side from the path); Today's Booking has its
+// own page, so it renders that view. The dashboard's <base href="/"> keeps assets resolving.
+const ADMIN_PAGE_ROUTES = {
+  "board":"dashboard", "todays-booking":"todaysbooking", "calendar-bookings":"dashboard",
+  "guest-form":"dashboard", "collection-reports":"dashboard", "website":"dashboard",
+  "booking-approval":"dashboard", "security-deposit":"dashboard", "violations-damages":"dashboard",
+  "partner-list":"dashboard", "commissions":"dashboard", "bookings-by-partner":"dashboard",
+  "pr-rooms":"dashboard", "add-partner":"dashboard", "havens":"dashboard", "rates-addons":"dashboard",
+  "housekeeping":"dashboard", "inventory":"dashboard", "finance":"dashboard", "payments":"dashboard",
+  "payroll":"dashboard", "bills":"dashboard", "expenses":"dashboard", "analytics":"dashboard",
+  "users":"dashboard", "employees":"dashboard", "assist":"dashboard", "log":"dashboard"
+};
+for (const slug in ADMIN_PAGE_ROUTES) {
+  app.get("/admin/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
+}
+
 /* ---------------- Static assets ---------------- */
 // Client JS/CSS live in /public; images stay in /images.
 // The project root is intentionally NOT served, so server.js / data

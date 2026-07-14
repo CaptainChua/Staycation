@@ -5,6 +5,7 @@
 
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
+<base href="/">   <!-- served at /admin/todays-booking (2 segments) — resolve relative assets/links from root -->
 <title>Today's Booking — Staycation Haven PH</title>
 <link rel="icon" href="images/logo.png">
 <script>
@@ -1459,7 +1460,14 @@
   // jump to another dashboard page — remember it so dashboard.html opens there
   function goPage(page){
     localStorage.setItem("shph_dashboard_page", page);
-    window.location.href = "/dashboard.html";
+    // navigate to the page's own /admin/<slug> URL (falls back to the dashboard for unmapped pages)
+    var SLUGS = { board:"board", calendar:"calendar-bookings", guestform:"guest-form", collections:"collection-reports",
+      approval:"booking-approval", deposit:"security-deposit", violations:"violations-damages",
+      partners:"partner-list", commissions:"commissions", partnerbookings:"bookings-by-partner", prrooms:"pr-rooms",
+      havens:"havens", booking:"rates-addons", cleaners:"housekeeping", inventory:"inventory",
+      finance:"finance", payments:"payments", payroll:"payroll", bills:"bills", expenses:"expenses",
+      analytics:"analytics", users:"users", employees:"employees", assist:"assist", log:"log" };
+    window.location.href = SLUGS[page] ? ("/admin/" + SLUGS[page]) : "/dashboard.html";
   }
   function currentUser(){ return localStorage.getItem("shph_current_user") || "Admin"; }
   function logout(){ logActivity("logged out"); localStorage.removeItem("shph_current_user"); window.location.href = "/admin.html"; }
