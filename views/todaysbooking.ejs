@@ -566,7 +566,7 @@
           #tbRangePop .dp-foot span:hover{ text-decoration:underline; }
         </style>
       </div>
-      <button class="btn secondary" onclick="renderToday()">↻ Refresh</button>
+      <button class="btn secondary" onclick="refreshToday(this)">↻ Refresh</button>
     </div>
   </div>
 
@@ -1319,6 +1319,26 @@
   function depReturnDate(b){
     if(!b || !b.checkout) return b && b.checkout;
     return iso(addDays(new Date(b.checkout + "T00:00:00"), 1));
+  }
+  // TRUE refresh: pull the live bookings from the server (fresh Firestore), update the local copy,
+  // then redraw. renderToday() alone only re-reads localStorage, so it can't show bookings made on
+  // another device/tab since this page loaded.
+  let _refreshing = false;
+  async function refreshToday(btn){
+    if(_refreshing) return;
+    _refreshing = true;
+    let label;
+    if(btn){ label = btn.textContent; btn.disabled = true; btn.textContent = "↻ Refreshing…"; }
+    try{
+      const r = await fetch("/api/kv/" + KEY, { cache:"no-store" });
+      if(r.ok){
+        const server = await r.json();
+        if(Array.isArray(server)){ (window.shphSetLocal || localStorage.setItem.bind(localStorage))(KEY, JSON.stringify(server)); }
+      }
+    }catch(e){ /* offline → just redraw what's local */ }
+    renderToday();   // re-reads the (now-fresh) local copy and redraws the current view
+    if(btn){ btn.disabled = false; btn.textContent = label || "↻ Refresh"; }
+    _refreshing = false;
   }
   function renderToday(){
     bookings = loadBookings();
