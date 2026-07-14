@@ -1138,12 +1138,14 @@ function partnersOnShowPage(page){
     // 3) re-apply permissions so the (now-registered) Partners nav reveals
     //    (in partner mode this runs applyPartnerChrome and lands on Today)
     if(typeof applyPermissions === "function") applyPermissions();
-    // 4) if the last-open page was a Partners page, restore it now that it's registered
-    //    (skipped in partner mode — chrome already chose the page)
+    // 4) if the page loaded straight onto a Partners page (or the Users page, which hosts the
+    //    Partner Logins section), re-run showPage now that partners.js is loaded — the dashboard's
+    //    startup showPage() ran BEFORE this script, so partnersOnShowPage() was a no-op then and the
+    //    partner content never rendered. (Skipped in partner mode — chrome already chose the page.)
     if(!window.__PARTNER__){
         try{
             const saved = localStorage.getItem("shph_dashboard_page");
-            if(saved && pages.some(p => p.key === saved) && typeof showPage === "function") showPage(saved);
+            if(saved && (saved === "users" || pages.some(p => p.key === saved)) && typeof showPage === "function") showPage(saved);
         }catch(e){}
     }
 })();
