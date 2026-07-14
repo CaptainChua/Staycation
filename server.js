@@ -86,7 +86,7 @@ apiRouter.get("/kv/:key", async (req, res) => {
 // would DROP records. (cleaning = object keyed by room; poolpass = no id → NOT here.)
 const MERGE_LIST_KEYS = new Set([
   "shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1",
-  "shph_users", "shph_staff_v1", "staycation_havens"
+  "shph_users", "shph_staff_v1", "staycation_havens", "shph_partners"
 ]);
 
 // write one key (body is the raw JSON value the browser stored)

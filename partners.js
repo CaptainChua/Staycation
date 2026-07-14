@@ -17,7 +17,18 @@
 const PARTNERS_KEY = "shph_partners";
 let partnerEditingId = null;
 
-function loadPartners(){ try{ return JSON.parse(localStorage.getItem(PARTNERS_KEY)) || []; }catch(e){ return []; } }
+function loadPartners(){ try{ return (JSON.parse(localStorage.getItem(PARTNERS_KEY)) || []).filter(p => p && !p.deleted); }catch(e){ return []; } }
+// Persist ONE partner record (merge-safe: can't overwrite the other partners) and mirror it locally.
+// Falls back to the whole-array write only if the dashboard helpers aren't loaded (e.g. partner view).
+function _savePartnerRecord(record, list){
+    record.updatedAt = new Date().toISOString();   // stamp so this change wins the seed-bridge merge everywhere
+    if(typeof saveOneRecord === "function"){
+        saveOneRecord(PARTNERS_KEY, record);
+        if(typeof setLocalKey === "function") setLocalKey(PARTNERS_KEY, list); else savePartnersStore(list);
+    } else {
+        savePartnersStore(list);
+    }
+}
 function savePartnersStore(arr){ localStorage.setItem(PARTNERS_KEY, JSON.stringify(arr)); }
 function partnerById(id){ return loadPartners().find(p => p.id === id) || null; }
 
@@ -78,14 +89,17 @@ function savePartnerForm(){
         notes:   document.getElementById("pf_notes").value.trim()
     };
     const list = loadPartners();
+    let record;
     if(partnerEditingId){
         const i = list.findIndex(p => p.id === partnerEditingId);
-        if(i >= 0) list[i] = Object.assign({}, list[i], data);
+        record = Object.assign({}, (i >= 0 ? list[i] : {}), data, { id: partnerEditingId });
+        if(i >= 0) list[i] = record; else list.push(record);
     } else {
-        data.id = Date.now();
-        list.push(data);
+        data.id = (typeof uid === "function") ? uid() : Date.now();   // collision-safe id
+        record = data;
+        list.push(record);
     }
-    savePartnersStore(list);
+    _savePartnerRecord(record, list);   // per-record save — adding/editing one partner can't wipe the others
     if(typeof logActivity === "function") logActivity((partnerEditingId ? "updated" : "added") + " partner " + name);
     partnerEditingId = null;
     showPage("partners");
@@ -95,7 +109,13 @@ function deletePartner(id){
     const p = partnerById(id);
     if(!p) return;
     if(!confirm("Delete partner \"" + p.name + "\"?")) return;
-    savePartnersStore(loadPartners().filter(x => x.id !== id));
+    if(typeof deleteOneRecord === "function"){
+        deleteOneRecord(PARTNERS_KEY, id);   // soft-delete on the server (merge-safe — won't drop the others)
+        const list = loadPartners().filter(x => x.id !== id);
+        if(typeof setLocalKey === "function") setLocalKey(PARTNERS_KEY, list); else savePartnersStore(list);
+    } else {
+        savePartnersStore(loadPartners().filter(x => x.id !== id));
+    }
     if(typeof logActivity === "function") logActivity("deleted partner " + p.name);
     renderPartners();
 }
@@ -482,8 +502,9 @@ function partnerChangePw(){
     if(String(me.pw || "") !== cur){ setMsg("Your current password is incorrect.", false); return; }
     if(String(me.pw || "") === nw){ setMsg("The new password is the same as your current one.", false); return; }
     me.pw = nw;
-    // whole-array write → the seed-bridge mirrors shph_partners to the server, so the new password
-    // is what /partner-login validates against next time. Only this record was touched; others intact.
+    me.updatedAt = new Date().toISOString();   // stamp so the pw change wins the seed-bridge merge
+    // whole-array write → the seed-bridge merges shph_partners to the server (per-record now), so the new
+    // password is what /partner-login validates against next time. Only this record was touched; others intact.
     try{ localStorage.setItem("shph_partners", JSON.stringify(partners)); }catch(e){}
     setMsg("✓ Password changed. Use your new password next time you log in.", true);
     ["paCur", "paNew", "paNew2"].forEach(function(id){ const el = document.getElementById(id); if(el) el.value = ""; });
@@ -511,7 +532,7 @@ function savePartnerLogin(id){
     if(i < 0) return;
     list[i].login = document.getElementById("pl_login_" + id).value.trim();
     list[i].pw = document.getElementById("pl_pw_" + id).value;
-    savePartnersStore(list);
+    _savePartnerRecord(list[i], list);   // per-record, merge-safe
     if(typeof logActivity === "function") logActivity("updated partner login for " + list[i].name);
     const btn = event && event.target;
     if(btn){ const t = btn.textContent; btn.textContent = "Saved ✓"; setTimeout(() => { btn.textContent = t; }, 1200); }
