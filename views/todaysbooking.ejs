@@ -983,6 +983,13 @@
   function checkoutTimeStr(b){
     return minToTime(bookingCheckinMin(b) + ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60);
   }
+  // The time an admin recorded the guest ACTUALLY leaving, when they left early ("" otherwise).
+  // b.actualCheckoutMin = minutes from check-in. Set on the main dashboard (Edit Booking →
+  // "Actual check-out"). Pricing never reads it, so the bill is unchanged.
+  function actualCheckoutStr(b){
+    const m = Number(b.actualCheckoutMin) || 0;
+    return m > 0 ? minToTime(bookingCheckinMin(b) + m) : "";
+  }
   function endExcl(b){
     return b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
   }
@@ -1035,7 +1042,11 @@
         <td><strong style="color:${havenInk(b.haven)};"><span class="hv-dot" style="background:${havenColors(b.haven).pm};"></span>${b.haven}</strong><br><a class="bk-code" href="/dashboard.html?open=${encodeURIComponent(b.id)}" title="Open booking details in Calendar">#${tbBookingCode(b)}</a></td>
         <td>${guestSummary(b)}${b.fbName ? `<br><span class="muted">FB: ${b.fbName}</span>` : ""}<br><span class="muted">${b.contact||""}</span></td>
         <td>${fmt(b.checkin)}<br><span class="muted">${checkinTimeStr(b)}</span></td>
-        <td>${fmt(b.checkout)}<br><span class="muted">${checkoutTimeStr(b)}</span></td>
+        <td>${fmt(b.checkout)}<br>${actualCheckoutStr(b)
+            /* left early: lead with when they ACTUALLY left (that's what the front desk acts on),
+               keeping the booked time struck through so the paid stay is still on record */
+            ? `<span class="muted" style="text-decoration:line-through; opacity:.55;">${checkoutTimeStr(b)}</span> <strong style="color:var(--hv-terra-d);" title="Guest checked out early — booked until ${checkoutTimeStr(b)}">${actualCheckoutStr(b)}</strong>`
+            : `<span class="muted">${checkoutTimeStr(b)}</span>`}</td>
         <td>${b.stayHours ? b.stayHours + "h" + (Number(b.stayHours)===6 && b.slot ? "<br><span class='muted'>"+(b.slot==="morning"?"AM":"PM")+"</span>" : "") : "—"}</td>
         <td>${addonsCell(b)}</td>
         <td>${amtCell}</td>
@@ -1193,6 +1204,10 @@
   function bookingInterval(b){
     const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
     const start = midnightMin + bookingCheckinMin(b);
+    // An admin-recorded EARLY check-out ends the occupancy when the guest actually left, so the
+    // freed hours show as available here too (this is the whole point of recording it).
+    const actual = Number(b.actualCheckoutMin) || 0;
+    if(actual > 0) return { start, end: start + actual };
     if(Number(b.stayHours) === 21 && b.checkout && b.checkout > b.checkin){
       const coMidnight = Math.round(new Date(b.checkout + "T00:00:00").getTime() / 60000);
       const checkoutMin = (bookingCheckinMin(b) + (21 + (Number(b.extend) || 0)) * 60) % 1440;
