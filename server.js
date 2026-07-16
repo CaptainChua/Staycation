@@ -154,6 +154,95 @@ apiRouter.post("/img", async (req, res) => {
   }
 });
 
+/* ---------------- Daily backup + restore (off-site safety net) ---------------- */
+// Guards the backup/restore endpoints. Vercel Cron sends `Authorization: Bearer <CRON_SECRET>`;
+// a manual call may pass ?token=<BACKUP_TOKEN>. If NEITHER secret is configured we allow (so it
+// works out of the box) but warn — set BACKUP_TOKEN and/or CRON_SECRET to lock these down.
+function backupAuthorized(req) {
+  const secret = process.env.BACKUP_TOKEN || process.env.CRON_SECRET || "";
+  if (!secret) { console.warn("[backup] no BACKUP_TOKEN/CRON_SECRET set — backup endpoints are UNPROTECTED"); return true; }
+  const bearer = String(req.headers.authorization || "").replace(/^Bearer\s+/i, "");
+  const token = (req.query && req.query.token) || bearer || (req.body && req.body.token) || "";
+  return token === secret;
+}
+
+// email the off-site copy to the owner (best-effort; skipped if Gmail isn't configured)
+async function emailBackup(snap) {
+  const user = process.env.GMAIL_USER || "staycationhavenph@gmail.com";
+  const pass = process.env.GMAIL_APP_PASSWORD || process.env.EMAIL_PASSWORD;
+  if (!pass) return { ok: false, error: "email_not_configured" };
+  let nodemailer;
+  try { nodemailer = require("nodemailer"); } catch (e) { return { ok: false, error: "nodemailer_missing" }; }
+  const to = process.env.BACKUP_EMAIL || process.env.OWNER_EMAIL || user;
+  const json = JSON.stringify(snap, null, 2);
+  const counts = Object.keys(snap.data || {}).map(k => {
+    const v = snap.data[k];
+    const n = Array.isArray(v) ? v.length : (v && typeof v === "object" ? Object.keys(v).length : (v != null ? 1 : 0));
+    return `  ${k}: ${n}`;
+  }).join("\n");
+  const transporter = nodemailer.createTransport({ service: "gmail", auth: { user, pass } });
+  await transporter.sendMail({
+    from: `"Staycation Haven PH — Backup" <${user}>`,
+    to,
+    subject: `Daily backup — ${snap.meta.day}`,
+    text: `Automatic off-site backup of Staycation Haven PH.\n\nTaken: ${snap.meta.at}\nProject: ${snap.meta.project || "—"}\n\nRecords:\n${counts}\n\nThe full data is attached as JSON. Keep it somewhere safe (Google Drive, etc.).`,
+    attachments: [{ filename: `shph-backup-${snap.meta.day}.json`, content: json, contentType: "application/json" }]
+  });
+  return { ok: true, to };
+}
+
+// Vercel Cron hits this daily: writes a full restore point to Firestore, then emails an off-site copy.
+apiRouter.all("/backup", async (req, res) => {
+  if (!backupAuthorized(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  try {
+    const backup = await store.backupAll();
+    let email = { ok: false, error: "skipped" };
+    if (req.query.email !== "0") {
+      try { email = await emailBackup(await store.snapshot()); }
+      catch (e) { email = { ok: false, error: e.message }; }
+    }
+    res.set("Cache-Control", "no-store");
+    res.json({ ok: !!backup.ok, backup, email });
+  } catch (e) {
+    console.error("[backup] failed:", e.message);
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// download the full off-site copy as a JSON file (token-guarded — it contains guest PII)
+apiRouter.get("/backup/download", async (req, res) => {
+  if (!backupAuthorized(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  try {
+    const snap = await store.snapshot();
+    res.set("Content-Type", "application/json; charset=utf-8");
+    res.set("Content-Disposition", `attachment; filename="shph-backup-${snap.meta.day}.json"`);
+    res.set("Cache-Control", "no-store");
+    res.send(JSON.stringify(snap, null, 2));
+  } catch (e) {
+    res.status(500).json({ ok: false, error: e.message });
+  }
+});
+
+// list every available restore point (token-guarded)
+apiRouter.get("/backup/list", async (req, res) => {
+  if (!backupAuthorized(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  try { res.json({ ok: true, retentionDays: Number(process.env.BACKUP_RETENTION_DAYS) || 30, backups: await store.listBackups() }); }
+  catch (e) { res.status(500).json({ ok: false, error: e.message }); }
+});
+
+// restore ONE key from a dated backup (DESTRUCTIVE — token-guarded). Body: { key, day }
+apiRouter.post("/restore", async (req, res) => {
+  if (!backupAuthorized(req)) return res.status(401).json({ ok: false, error: "unauthorized" });
+  try {
+    const { key, day } = req.body || {};
+    if (!key || !day) return res.status(400).json({ ok: false, error: "need key and day" });
+    const count = await store.restoreKey(key, day);
+    res.json({ ok: true, key, day, restored: count });
+  } catch (e) {
+    res.status(400).json({ ok: false, error: e.message });
+  }
+});
+
 // quick health/diagnostics — confirms which backend + whether Cloud Storage is active
 app.get("/api/health", async (req, res) => {
   try { await ensureStore(); } catch (e) {}

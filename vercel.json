@@ -8,5 +8,8 @@
   },
   "rewrites": [
     { "source": "/(.*)", "destination": "/api/index" }
+  ],
+  "crons": [
+    { "path": "/api/backup", "schedule": "0 18 * * *" }
   ]
 }

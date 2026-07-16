@@ -4,6 +4,9 @@ node_modules/
 # live data (customer bookings, names, phone numbers) — keep OUT of git
 data/
 
+# local off-site backups (full guest PII dumps) — keep OUT of git
+backups/
+
 # logs & env
 # *.log
 # npm-debug.log*
