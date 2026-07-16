@@ -668,8 +668,8 @@ tr.row-cancelled td:nth-child(2){ text-decoration:line-through; }
 .form-grid{ display:grid; grid-template-columns:1fr 1fr; gap:14px; }
 .field{ display:flex; flex-direction:column; gap:5px; }
 .field.full{ grid-column:1 / -1; }
-/* three-across row (Time of stay · Check-in time · Check-out time) */
-.tsrow{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr; gap:14px; }
+/* four-across row (Time of stay · Check-in time · Check-out time · Actual check-out) */
+.tsrow{ grid-column:1 / -1; display:grid; grid-template-columns:1fr 1fr 1fr 1fr; gap:14px; }
 @media (max-width:640px){ .tsrow{ grid-template-columns:1fr; } }
 /* four-across row (Downpayment · Total · Security deposit · Balance) */
 .pricerow{ grid-column:1 / -1; display:grid; grid-template-columns:repeat(4,1fr); gap:14px; }
@@ -3196,6 +3196,10 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
                     <label>Check-out time <span class="muted">(auto)</span></label>
                     <input type="text" id="f_checkoutTime" readonly>
                 </div>
+                <div class="field">
+                    <label>Actual check-out <span class="muted">(if early)</span></label>
+                    <select id="f_actualCheckout" onchange="onActualCheckoutChange()"></select>
+                </div>
             </div>
             <div class="field">
                 <label>Facebook Name</label>
@@ -3885,6 +3889,13 @@ function checkinTimeStr(b){ return minToTime(bookingCheckinMin(b)); }
 function checkoutTimeStr(b){
     return minToTime(bookingCheckinMin(b) + ((Number(b.stayHours) || 21) + (Number(b.extend) || 0)) * 60);
 }
+// The time the guest ACTUALLY left, when an admin recorded an early check-out ("" otherwise).
+// Kept separate from checkoutTimeStr() on purpose: that one stays the time they PAID for, so the
+// booked stay and the real departure are both on record.
+function actualCheckoutStr(b){
+    const m = Number(b.actualCheckoutMin) || 0;
+    return m > 0 ? minToTime(bookingCheckinMin(b) + m) : "";
+}
 
 /* ---------- pricing ---------- */
 const PRICING = {
@@ -3993,6 +4004,11 @@ function slotLabel(slot){
 function bookingInterval(b){
     const midnightMin = Math.round(new Date(b.checkin + "T00:00:00").getTime() / 60000);
     const start = midnightMin + bookingCheckinMin(b);
+    // An admin-recorded EARLY check-out ends the occupancy the moment the guest actually left,
+    // so the freed hours can be sold to the next booking. Pricing reads stayHours, never this —
+    // the guest is still billed for the full stay they booked.
+    const actual = Number(b.actualCheckoutMin) || 0;
+    if(actual > 0) return { start, end: start + actual };
     // overnight stays (incl. multi-night) are occupied until the check-out date's morning,
     // so a 2-night booking blocks every night — not just the first 21h window
     if(Number(b.stayHours) === 21 && b.checkout && b.checkout > b.checkin){
@@ -5560,7 +5576,7 @@ function viewBooking(id){
             <span class="k">Guests</span><span class="v">${guests}</span>
             <span class="k">Contact</span><span class="v">${escHtml(b.contact || "—")}</span>
             <span class="k">Check-in</span><span class="v">${fmt(b.checkin)} · ${checkinTimeStr(b)}</span>
-            <span class="k">Check-out</span><span class="v">${b.checkout ? fmt(b.checkout) : "—"} · ${checkoutTimeStr(b)}</span>
+            <span class="k">Check-out</span><span class="v">${b.checkout ? fmt(b.checkout) : "—"} · ${checkoutTimeStr(b)}${actualCheckoutStr(b) ? ` <span style="color:var(--hv-terra-d); font-weight:700;">· left early ${actualCheckoutStr(b)}</span>` : ""}</span>
             <span class="k">Stay</span><span class="v">${b.stayHours ? b.stayHours + "h" : "—"}${b.slot ? " · " + slotLabel(b.slot) : ""}</span>
             <span class="k">Pax</span><span class="v">${(b.guests || []).length}</span>
             ${addons.length ? `<span class="k">Add-ons</span><span class="v">${addons.join(", ")}</span>` : ""}
@@ -6399,16 +6415,80 @@ function recomputeDashCheckout(){
     paintDates();
 }
 // user edited the check-out date (only possible on multi-night stays)
-function onCheckoutEdited(){ recalc(); updateHavenOptions(); }
+function onCheckoutEdited(){ recalc(); fillActualCheckoutTimes(); updateHavenOptions(); }
+
+/* ---------- early check-out (admin-recorded actual departure) ----------
+   Guests often leave BEFORE their paid check-out time. Recording the real departure frees the
+   haven for the next booking, while "Time of stay" — the only thing pricing reads — stays put,
+   so the bill NEVER changes. Stored as minutes-from-check-in (not a wall-clock string) so it is
+   unambiguous across midnight and multi-night stays. */
+
+// the SCHEDULED length of the stay in minutes (what the guest paid for). This is the ceiling for
+// an early check-out: giving MORE time must go through Extend (₱150/hr), which actually bills.
+function scheduledDurMin(){
+    const stayVal = document.getElementById("f_stay").value;
+    const ext = Number(document.getElementById("f_extend").value) || 0;
+    if(stayVal === "multi"){
+        const ci = document.getElementById("f_checkin").value;
+        const co = document.getElementById("f_checkout").value;
+        const startMin = dashCheckinMin(dashCheckinTimeValue());
+        if(ci && co && co > ci){
+            // mirrors bookingInterval(): a multi-night stay ends on the check-out DATE at the
+            // overnight check-out time-of-day.
+            const endTod = (startMin + (21 + ext) * 60) % 1440;
+            return daysBetween(ci, co) * 1440 + endTod - startMin;
+        }
+        return (21 + ext) * 60;
+    }
+    return ((Number(stayVal) || 21) + ext) * 60;
+}
+// Build the picker: every 30 minutes between check-in and the SCHEDULED check-out. Because no
+// option later than scheduled is ever generated, an early check-out can free the haven but can
+// never silently hand out unpaid hours.
+function fillActualCheckoutTimes(){
+    const sel = document.getElementById("f_actualCheckout");
+    if(!sel) return;
+    const prev = sel.value;
+    const ci = document.getElementById("f_checkin").value;
+    const t = dashCheckinTimeValue();
+    const startMin = dashCheckinMin(t);
+    const dur = scheduledDurMin();
+    let html = `<option value="">— On time${(ci && t) ? " (" + minToTime(startMin + dur) + ")" : ""}</option>`;
+    if(ci && t && dur > 30){
+        const ciDate = new Date(ci + "T00:00:00");
+        for(let m = 30; m < dur; m += 30){
+            const abs = startMin + m;
+            const dayOff = Math.floor(abs / 1440);
+            const lbl = minToTime(abs) + (dayOff > 0 ? ` · ${fmt(iso(addDays(ciDate, dayOff)))}` : "");
+            html += `<option value="${m}">${lbl}</option>`;
+        }
+    }
+    sel.innerHTML = html;
+    if(prev && [...sel.options].some(o => o.value === prev)) sel.value = prev;   // keep the choice across recomputes
+}
+// minutes-from-check-in the guest actually left (0 = left on time / not recorded)
+function actualCheckoutValue(){
+    const sel = document.getElementById("f_actualCheckout");
+    return sel ? (Number(sel.value) || 0) : 0;
+}
+function setActualCheckout(min){
+    const sel = document.getElementById("f_actualCheckout");
+    if(!sel) return;
+    const v = Number(min) ? String(Number(min)) : "";
+    sel.value = [...sel.options].some(o => o.value === v) ? v : "";
+}
+// recording an early departure re-opens the haven → refresh the "free from" labels
+function onActualCheckoutChange(){ updateHavenOptions(); }
 
 function onStayChange(){
     setCheckoutEditable(stayIsMulti());
     recomputeDashCheckout();
     recalc();
+    fillActualCheckoutTimes();
     updateHavenOptions();
 }
 function onTimeChange(){ onStayChange(); }
-function onExtendChange(){ recomputeDashCheckout(); recalc(); }
+function onExtendChange(){ recomputeDashCheckout(); recalc(); fillActualCheckoutTimes(); }
 
 // the minute-of-day a haven becomes free for `cand` = latest clashing check-out + cleaning gap,
 // or null if nothing clashes. Used to label/snap busy havens in the dropdown.
@@ -6626,6 +6706,8 @@ function openModal(id){
     updateGuestCapNote();
     bkGoPage(1);
     onStayChange();
+    // restore the recorded early check-out — must run AFTER onStayChange(), which builds the options
+    setActualCheckout(editingId ? (bookings.find(x => x.id === editingId) || {}).actualCheckoutMin : 0);
     document.getElementById("overlay").classList.add("show");
 }
 function closeModal(){
@@ -7499,6 +7581,7 @@ async function saveBooking(){
         swimpass: Number(document.getElementById("f_swimpass").value) || 0,
         towels: Number(document.getElementById("f_towels").value) || 0,
         extend: Number(document.getElementById("f_extend").value) || 0,
+        actualCheckoutMin: actualCheckoutValue(),   // early departure (minutes from check-in) — frees the haven, never changes the bill
         holiday: document.getElementById("f_holiday").checked,
         reschedFee: document.getElementById("f_resched").checked ? PRICING.reschedFee : 0,
         deposit: Number(document.getElementById("f_deposit").value) || 0,
@@ -8580,7 +8663,7 @@ function renderCollections(){
             : (r.day ? new Date(r.day + "T00:00:00").toLocaleDateString("en-PH", { month:"short", day:"numeric", year:"numeric" }) : "—");
         return `<tr>
             <td class="num muted">${ri + 1}</td>
-            <td><a href="dashboard.html?edit=${b.id}" target="_blank" rel="noopener" title="Open this booking in a new tab" style="color:var(--hv-terra-d); font-weight:700; text-decoration:underline;">${bookingCode(b)}</a></td>
+            <td><a href="dashboard.html?edit=${b.id}" onclick="crOpenBooking(event, ${b.id})" title="Open this booking's Proof of Payment" style="color:var(--hv-terra-d); font-weight:700; text-decoration:underline; cursor:pointer;">${bookingCode(b)}</a></td>
             <td>${escHtml(primaryName(b))}${b.fbName ? `<br><span class="muted" style="font-size:11px;">FB: ${escHtml(b.fbName)}</span>` : ""}</td>
             <td>${escHtml(b.haven)}</td>
             <td class="num"><strong>${peso(r.amount)}</strong></td>
@@ -8600,6 +8683,18 @@ function renderCollections(){
     document.getElementById("crTotal").textContent = peso(total);
     const foot = document.getElementById("crFoot");
     if(foot) foot.innerHTML = rows.length ? `<tr><td colspan="4" style="text-align:right;">Total Collected · ${rows.length} payment${rows.length === 1 ? "" : "s"}</td><td class="num">${peso(total)}</td><td colspan="5"></td></tr>` : "";
+}
+// clicking a Collection Reports booking ID opens THAT booking's Edit modal on the Proof of Payment tab, in place
+// (the href is kept as a fallback so ctrl/cmd/middle-click still opens it in a new tab)
+function crOpenBooking(e, id){
+    if(e){
+        if(e.ctrlKey || e.metaKey || e.shiftKey || e.button === 1) return;   // let a modified click use the href → new tab
+        e.preventDefault();
+    }
+    const b = bookings.find(x => String(x.id) === String(id));
+    if(!b) return;
+    if(typeof openModal === "function") openModal(b.id);
+    if(typeof bkGoPage === "function") bkGoPage(2);   // 2 = Proof of Payment tab
 }
 // mark a Collection Reports row Verified / Not Verified — persisted on the booking (downpayment) or the payment record
 function crSetStatus(sel, bookingId, kind, idx){
