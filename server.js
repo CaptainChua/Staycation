@@ -48,20 +48,12 @@ app.use("/api", (req, res, next) => {
 /* ---------------- REST API (the shared backend) ---------------- */
 const apiRouter = express.Router();
 
-// bulk import: { key: value, ... } → save every known shared key at once
-apiRouter.post("/import", async (req, res) => {
-  const body = req.body || {};
-  const imported = {};
-  const writes = [];
-  for (const key of Object.keys(body)) {
-    if (store.isShared(key) && body[key] != null) {
-      writes.push(store.set(key, body[key]));
-      imported[key] = Array.isArray(body[key]) ? body[key].length : "saved";
-    }
-  }
-  await Promise.all(writes);
-  res.json({ ok: true, imported });
-});
+// REMOVED: POST /api/import (2026-07-17 audit).
+// It took { key: value, … } and called store.set() — a FULL OVERWRITE that bypassed the mergeById
+// guards every other write path relies on. With no authentication in front of it, a single
+// unauthenticated request could erase every booking, or replace shph_users to grant admin. It also
+// reported { ok: true } even when the write failed, because store.set() swallows backend errors.
+// Nothing in the app ever called it. Restores go through POST /api/restore (token-guarded) instead.
 
 // read every shared key at once
 apiRouter.get("/kv", (req, res) => res.json(store.all()));
@@ -86,7 +78,10 @@ apiRouter.get("/kv/:key", async (req, res) => {
 // would DROP records. (cleaning = object keyed by room; poolpass = no id → NOT here.)
 const MERGE_LIST_KEYS = new Set([
   "shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1",
-  "shph_users", "shph_staff_v1", "staycation_havens", "shph_partners"
+  "shph_users", "shph_staff_v1", "staycation_havens", "shph_partners",
+  // violation records carry a uid() id, and seed-bridge already lists this in its MERGE_KEYS —
+  // the two must match, or a whole-array push here would overwrite instead of merge.
+  "shph_violations_v1"
 ]);
 
 // write one key (body is the raw JSON value the browser stored)
@@ -556,6 +551,38 @@ const PAGES = [
 // Guest-facing pages that the website Maintenance switch takes offline.
 const PUBLIC_PAGES = new Set(["index", "havens", "booknow", "payment"]);
 
+/* ---------- Public seed projection (2026-07-17 audit) ----------
+   renderPage() injects the whole store as window.__SEED__ so the existing localStorage-based page
+   code keeps working. On the PUBLIC pages that handed every anonymous visitor the entire database:
+   185 bookings with guest names + phone numbers, all users with PLAINTEXT passwords, partner
+   logins, staff, bills, expenses and the activity log. Guest pages need almost none of it.
+
+   Only these keys are needed publicly: the haven list + settings (rates, payment methods), and the
+   bookings — reduced to the fields the website's availability and duplicate checks actually read.
+
+   `updatedAt` is deliberately NOT included, and that omission is load-bearing: seed-bridge merges
+   __SEED__ with localStorage and can push the result back (payment.html writes the array), while
+   store.js mergeById keeps the stored record whenever the incoming copy has no updatedAt. Omitting
+   it means a projected record can never overwrite a full one. Do not add it. */
+const PUBLIC_SEED_KEYS = ["staycation_havens", "shph_settings"];
+const PUBLIC_BOOKING_FIELDS = [
+  "id",                                                              // merge identity
+  "haven", "checkin", "checkout", "checkinTime", "stayHours",        // availability window
+  "slot", "extend", "cancelled", "deleted",                          // …and what frees it
+  "source", "contact", "bookingNo"                                   // website duplicate check + SH-000x sequence
+];
+function publicSeed(seed) {
+  const out = {};
+  for (const k of PUBLIC_SEED_KEYS) if (k in seed) out[k] = seed[k];
+  const list = Array.isArray(seed.shph_bookings_v3) ? seed.shph_bookings_v3 : [];
+  out.shph_bookings_v3 = list.map(b => {
+    const o = {};
+    for (const f of PUBLIC_BOOKING_FIELDS) if (b && b[f] !== undefined) o[f] = b[f];
+    return o;
+  });
+  return out;
+}
+
 // A friendly, branded "we'll be right back" page shown to guests while the owner has the website
 // under maintenance. Self-contained (no external assets except the logo) so it always renders.
 function maintenanceHtml() {
@@ -627,7 +654,9 @@ function renderPage(name) {
     res.set("Cache-Control", "no-store, no-cache, must-revalidate, proxy-revalidate");
     res.set("Pragma", "no-cache");
     res.set("Expires", "0");
-    res.render(name, { seed, page: name }, (err, html) => {
+    // guest pages get a minimal, PII-free projection; the dashboard/admin pages get the full store
+    const pageSeed = PUBLIC_PAGES.has(name) ? publicSeed(seed) : seed;
+    res.render(name, { seed: pageSeed, page: name }, (err, html) => {
       if (err) {
         console.error("Render error for", name, "—", err.message);
         return res.status(500).send("Page render error: " + err.message);

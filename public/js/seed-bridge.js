@@ -40,7 +40,13 @@
   // keys that used to be browser-only: the first time the server copy is still
   // empty, migrate this browser's existing data UP instead of letting the empty
   // server value overwrite (and destroy) it.
-  var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole", "shph_partners"];
+  // shph_partner_inventory joined this list on 2026-07-17: it was in SHARED here but missing from
+  // store.js SHARED_KEYS, so every PUT 403'd and it stayed browser-only. Now that the server
+  // accepts it, the seed carries an empty {} — and without MIGRATE the priming below would
+  // safeSet() that {} straight over a partner's real inventory. It is an object (not id-keyed), so
+  // MERGE_KEYS can't protect it. shph_violations_v1 needs no entry: it IS in MERGE_KEYS, so its
+  // records merge up by id.
+  var MIGRATE = ["shph_poolpass_v1", "shph_guestform_units", "shph_employee_nicole", "shph_partners", "shph_partner_inventory"];
   // id-keyed list stores that MERGE (never overwrite) on load + save → no lost records,
   // multi-user safe. Must match server.js MERGE_LIST_KEYS. (id-less stores must NOT be here.)
   var MERGE_KEYS = ["shph_bookings_v3", "shph_bills_v1", "shph_expenses_v1", "shph_users", "shph_staff_v1", "staycation_havens", "shph_violations_v1", "shph_partners"];
