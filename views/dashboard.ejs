@@ -1953,10 +1953,16 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="page" id="page-calendar">
 
 <style>
-  #page-calendar .cal-tabs{ display:flex; align-items:center; gap:20px; }
-  #page-calendar .cal-tab{ border:none; background:none; padding:0 0 6px; font-family:inherit; font-size:18px; font-weight:800; color:var(--hv-muted); cursor:pointer; border-bottom:2px solid transparent; }
-  #page-calendar .cal-tab:hover{ color:var(--hv-ink); }
-  #page-calendar .cal-tab.active{ color:var(--hv-ink); border-bottom-color:var(--hv-terra); }
+  /* real segmented buttons (same language as the Security Deposit / Collection Reports segments)
+     — the old text-with-underline styling didn't read as clickable */
+  #page-calendar .cal-tabs{ display:inline-flex; align-items:stretch; background:#fff; border:1px solid var(--hv-line);
+      border-radius:10px; overflow:hidden; box-shadow:0 1px 2px rgba(0,0,0,.04); }
+  #page-calendar .cal-tab{ border:none; background:none; padding:10px 20px; font-family:inherit; font-size:14px;
+      font-weight:700; color:var(--hv-muted); cursor:pointer; transition:background .12s, color .12s; white-space:nowrap; }
+  #page-calendar .cal-tab + .cal-tab{ border-left:1px solid var(--hv-line); }
+  #page-calendar .cal-tab:hover{ background:#faf6ee; color:var(--hv-ink); }
+  #page-calendar .cal-tab.active{ background:var(--hv-ink); color:#fff; }
+  @media (max-width:640px){ #page-calendar .cal-tab{ padding:9px 13px; font-size:13px; } }
   #page-calendar .av-table{ width:100%; border-collapse:collapse; font-size:14px; }
   #page-calendar .av-table th{ text-align:left; font-size:11px; letter-spacing:.4px; text-transform:uppercase; color:var(--hv-muted); font-weight:700; padding:10px 14px; border-bottom:1px solid var(--hv-line); }
   #page-calendar .av-table td{ padding:14px; border-bottom:1px solid var(--hv-line); vertical-align:middle; color:var(--hv-ink); }
@@ -1975,9 +1981,9 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="panel">
     <div class="panel-head">
         <div class="cal-tabs">
-            <button class="cal-tab active" data-ct="month" onclick="calTab('month')">Month</button>
-            <button class="cal-tab" data-ct="calendar" onclick="calTab('calendar')">Timeline</button>
+            <button class="cal-tab active" data-ct="calendar" onclick="calTab('calendar')">Timeline</button>
             <button class="cal-tab" data-ct="availability" onclick="calTab('availability')">Availability</button>
+            <button class="cal-tab" data-ct="month" onclick="calTab('month')">Month</button>
         </div>
         <div class="cal-nav" id="calNav">
             <button class="btn secondary" onclick="shiftWeek(-1)">‹ Prev</button>
@@ -2005,12 +2011,12 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <input type="text" id="calSearchInput" placeholder="Search name / mobile / booking #…" oninput="setCalSearch(this.value)" title="Show only bookings matching a guest name, mobile no., or booking #" style="min-width:220px;">
         </div>
     </div>
-    <div id="monthBody">
+    <div id="monthBody" style="display:none;">
         <div class="mc-dows" id="mcDows"></div>
         <div class="mc-grid" id="mcGrid"></div>
         <div class="legend" id="legendMonth"></div>
     </div>
-    <div id="calBody" style="display:none;">
+    <div id="calBody">
         <div class="tl-daylabel" id="tlDayLabel"></div>
         <div class="timeline">
             <div class="tl-grid" id="timeline"></div>
@@ -4676,7 +4682,7 @@ function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh =
 
 // single-day view → hourly timeline; the hour window auto-fits the day's bookings
 /* ---------- Month / Timeline / Availability tabs (inside the calendar panel) ---------- */
-let calView = "month";   // "month" (default) | "calendar" (the timeline) | "availability"
+let calView = "calendar";   // "calendar" (the timeline — default) | "availability" | "month"
 
 // Snap the SHARED date window to the calendar month containing `d`, so the summary cards and the
 // bookings table below stay in step with the month on screen (same window the timeline uses).
@@ -9364,8 +9370,8 @@ fillHavenSelectors();
 renderLegend();
 restoreView();
 renderAll();
-// open the calendar on the view last used (Month is the default for everyone else)
-try{ calTab(localStorage.getItem("shph_cal_view") || "month"); }catch(e){ calTab("month"); }
+// open the calendar on the view last used (the Timeline is the default for everyone else)
+try{ calTab(localStorage.getItem("shph_cal_view") || "calendar"); }catch(e){ calTab("calendar"); }
 document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
 window.addEventListener("resize", renderTimeline);
 
