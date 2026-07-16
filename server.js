@@ -674,6 +674,10 @@ const ADMIN_PAGE_ROUTES = {
 };
 for (const slug in ADMIN_PAGE_ROUTES) {
   app.get("/admin/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
+  // The same pages for a logged-in PARTNER, under /partners/<slug>. The dashboard detects partner
+  // mode from the path, so a partner must never sit on an /admin/<slug> URL: refreshing there would
+  // load the page unscoped — no haven filter, no partner chrome — showing every haven's bookings.
+  app.get("/partners/" + slug, renderPage(ADMIN_PAGE_ROUTES[slug]));
 }
 
 /* ---------------- Static assets ---------------- */

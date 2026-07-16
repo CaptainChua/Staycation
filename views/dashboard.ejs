@@ -4292,8 +4292,11 @@ _seedBkSig(bookings);   // baseline for edit-stamping = the loaded state (preven
    haven. Filtering the bookings array here scopes EVERY view (stats, calendar,
    table). Chrome/lockdown lives in partners.js (applyPartnerChrome). */
 var _pPath = location.pathname.replace(/\/+$/, "").toLowerCase();
+// NOTE: partner mode is detected from the PATH, so every partner deep link must stay under
+// /partners/… — see syncPageUrl(). A partner sitting on an /admin/<slug> URL would reload
+// UNSCOPED (no filter, no partner chrome) and see every haven's bookings.
 if(new URLSearchParams(location.search).get("mode") === "partner"
-   || _pPath === "/partners" || _pPath.endsWith("/partner-dashboard")){
+   || _pPath === "/partners" || _pPath.indexOf("/partners/") === 0 || _pPath.endsWith("/partner-dashboard")){
     window.__ON_PARTNER_PATH__ = true;   // on a partner URL → if not signed in, send to partner-login (never admin)
     let _ps = null;
     try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
@@ -7942,14 +7945,20 @@ const PAGE_SLUGS = {
 const SLUG_PAGES = {};
 for(const k in PAGE_SLUGS) SLUG_PAGES[PAGE_SLUGS[k]] = k;
 function pageFromPath(){
-    const m = String(location.pathname).match(/^\/admin\/([a-z0-9-]+)/i);
+    const m = String(location.pathname).match(/^\/(?:admin|partners)\/([a-z0-9-]+)/i);
     return (m && SLUG_PAGES[m[1].toLowerCase()]) || null;
+}
+// the URL prefix this session's pages live under. A partner MUST stay under /partners/… — partner
+// mode is detected from the path, so an /admin/<slug> URL would reload without the haven filter or
+// the partner chrome, exposing every haven's bookings.
+function pageUrlBase(){
+    return (window.__PARTNER__ || window.__ON_PARTNER_PATH__) ? "/partners/" : "/admin/";
 }
 // reflect the current page in the address bar (push = new history entry, replace = same entry)
 function syncPageUrl(page, replace){
     const slug = PAGE_SLUGS[page];
     if(!slug) return;                                   // pages without a slug don't touch the URL
-    const url = "/admin/" + slug;
+    const url = pageUrlBase() + slug;
     if(location.pathname === url) return;
     try{ history[replace ? "replaceState" : "pushState"]({ shpPage: page }, "", url); }catch(e){}
 }
