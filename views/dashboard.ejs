@@ -380,6 +380,33 @@ body{ background:#f5f5f5; color:#222; padding:30px 30px 30px 250px; }
 .bar.unpaid{ background:#d63a4f; }
 /* red dot on a booking that's missing its downpayment proof or an ID photo */
 .bar .bar-flag{ position:absolute; top:2px; right:2px; width:7px; height:7px; border-radius:50%; background:#e01e37; box-shadow:0 0 0 1.5px #fff; pointer-events:none; z-index:3; }
+/* ---------- Calendar · Month view (mirrors the Partner Calendar design) ---------- */
+#monthBody .mc-dows, #monthBody .mc-grid{ display:grid; grid-template-columns:repeat(7,1fr); gap:8px; }
+#monthBody .mc-dows{ margin-bottom:6px; }
+#monthBody .mc-dow{ color:var(--hv-muted); font-size:12px; font-weight:600; padding-left:4px; }
+/* Cells GROW to fit their bookings. The partner calendar can clip (one room, few pills), but an
+   admin day can hold several havens — silently hiding a booking is far worse than a taller row. */
+#monthBody .mc-grid{ grid-auto-rows:minmax(118px,auto); }
+#monthBody .mc-cell{ border:1px solid var(--hv-line); border-radius:12px; padding:8px; background:#fff; }
+#monthBody .mc-cell.empty{ background:transparent; border:none; }
+#monthBody .mc-cell.past{ background:#f4f2ef; }
+#monthBody .mc-num{ font-weight:700; font-size:15px; margin-bottom:5px; }
+#monthBody .mc-cell.past .mc-num{ color:#b9b2a8; text-decoration:line-through; }
+#monthBody .mc-cell.today .mc-num{ display:inline-flex; align-items:center; justify-content:center; min-width:24px; height:24px; padding:0 6px; background:#e11d48; color:#fff; border-radius:12px; }
+#monthBody .mc-pill{ position:relative; display:flex; align-items:center; gap:6px; font-size:11px; font-weight:700; color:#3a3527;
+    border-radius:999px; padding:4px 10px; margin-top:5px; cursor:pointer; box-shadow:0 1px 2px rgba(0,0,0,.07); }
+#monthBody .mc-pill:hover{ filter:brightness(.97); }
+#monthBody .mc-dot{ width:7px; height:7px; border-radius:50%; flex:0 0 auto; box-shadow:0 0 0 1.5px rgba(255,255,255,.65); }
+#monthBody .mc-nm{ overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+/* the "missing downpayment/ID photo" flag — .bar-flag is scoped to .bar, so re-anchor it on a pill */
+#monthBody .mc-pill .bar-flag{ position:absolute; top:-2px; right:-2px; width:7px; height:7px; border-radius:50%;
+    background:#e01e37; box-shadow:0 0 0 1.5px #fff; pointer-events:none; z-index:3; }
+#monthBody .legend{ margin-top:14px; }
+@media (max-width:760px){
+    #monthBody .mc-grid{ grid-auto-rows:minmax(92px,auto); gap:5px; }
+    #monthBody .mc-cell{ padding:5px; border-radius:9px; }
+    #monthBody .mc-pill{ padding:3px 7px; font-size:10px; }
+}
 /* month view: bar shows a stay-shape glyph (★ 6h · ■ 10h · ● 21h) instead of the name */
 .bar.bar-shape{
     justify-content:center;
@@ -1948,7 +1975,8 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
 <div class="panel">
     <div class="panel-head">
         <div class="cal-tabs">
-            <button class="cal-tab active" data-ct="calendar" onclick="calTab('calendar')">Calendar</button>
+            <button class="cal-tab active" data-ct="month" onclick="calTab('month')">Month</button>
+            <button class="cal-tab" data-ct="calendar" onclick="calTab('calendar')">Timeline</button>
             <button class="cal-tab" data-ct="availability" onclick="calTab('availability')">Availability</button>
         </div>
         <div class="cal-nav" id="calNav">
@@ -1972,12 +2000,17 @@ input.gf-ov:hover{ background:rgba(189,110,63,.10); cursor:text; }   /* show fie
             <button class="btn secondary" onclick="shiftWeek(1)">Next ›</button>
             <button class="btn secondary cal-today" onclick="showToday()">Today</button>
             <button class="btn secondary" onclick="showThisMonth()">This month</button>
-            <button class="btn secondary" onclick="openDatePicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Custom range</button>
+            <button class="btn secondary" id="calCustomRangeBtn" onclick="openDatePicker(event)"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="17" rx="2"/><path d="M3 9h18M8 2v4M16 2v4"/></svg>Custom range</button>
             <select id="calHavenFilter" onchange="setCalHaven(this.value)" title="Show one haven"></select>
             <input type="text" id="calSearchInput" placeholder="Search name / mobile / booking #…" oninput="setCalSearch(this.value)" title="Show only bookings matching a guest name, mobile no., or booking #" style="min-width:220px;">
         </div>
     </div>
-    <div id="calBody">
+    <div id="monthBody">
+        <div class="mc-dows" id="mcDows"></div>
+        <div class="mc-grid" id="mcGrid"></div>
+        <div class="legend" id="legendMonth"></div>
+    </div>
+    <div id="calBody" style="display:none;">
         <div class="tl-daylabel" id="tlDayLabel"></div>
         <div class="timeline">
             <div class="tl-grid" id="timeline"></div>
@@ -3851,6 +3884,12 @@ function fmt(dateStr){
     const d = new Date(dateStr + "T00:00:00");
     return d.toLocaleDateString("en-PH", {month:"short", day:"numeric"});
 }
+// "Mon · Jul 20" — same date, with the weekday. Used where the DAY OF WEEK actually matters
+// (Availability: weekend vs weekday demand/rates), without touching fmt() everywhere else.
+function fmtDow(dateStr){
+    const d = new Date(dateStr + "T00:00:00");
+    return d.toLocaleDateString("en-PH", {weekday:"short"}) + " · " + fmt(dateStr);
+}
 function daysBetween(a, b){ // whole days from a to b
     return Math.round((new Date(b) - new Date(a)) / 86400000);
 }
@@ -4636,16 +4675,97 @@ function finPickMonth(m){
 function tlHourShort(h){ const ap = h < 12 ? "a" : "p"; let hh = h % 12; if(hh === 0) hh = 12; return hh + ap; }
 
 // single-day view → hourly timeline; the hour window auto-fits the day's bookings
-/* ---------- Calendar / Availability tabs (inside the timeline panel) ---------- */
+/* ---------- Month / Timeline / Availability tabs (inside the calendar panel) ---------- */
+let calView = "month";   // "month" (default) | "calendar" (the timeline) | "availability"
+
+// Snap the SHARED date window to the calendar month containing `d`, so the summary cards and the
+// bookings table below stay in step with the month on screen (same window the timeline uses).
+function calSetMonth(d){
+    rangeStart = new Date(d.getFullYear(), d.getMonth(), 1);
+    viewDays = new Date(d.getFullYear(), d.getMonth() + 1, 0).getDate();
+    filterToWindow = true;
+    viewMode = "month";
+}
+// re-draw whichever calendar view is currently on screen
+function calRerender(){
+    if(calView === "month") renderMonth();
+    else if(calView === "calendar" && typeof renderTimeline === "function") renderTimeline();
+}
 function calTab(view){
+    calView = view;
+    try{ localStorage.setItem("shph_cal_view", view); }catch(e){}
     document.querySelectorAll("#page-calendar .cal-tab").forEach(function(t){ t.classList.toggle("active", t.dataset.ct === view); });
     const isAvail = (view === "availability");
-    const cal = document.getElementById("calBody"), av = document.getElementById("availBody"), nav = document.getElementById("calNav");
-    if(cal) cal.style.display = isAvail ? "none" : "";
+    const mo = document.getElementById("monthBody"), cal = document.getElementById("calBody"),
+          av = document.getElementById("availBody"), nav = document.getElementById("calNav");
+    if(mo) mo.style.display = view === "month" ? "" : "none";
+    if(cal) cal.style.display = view === "calendar" ? "" : "none";
     if(av) av.style.display = isAvail ? "" : "none";
-    if(nav) nav.style.display = isAvail ? "none" : "";   // the Prev/Next/date controls apply to the timeline only
-    if(isAvail) renderAvailability();
-    else if(typeof renderTimeline === "function") renderTimeline();   // reflow the timeline when coming back
+    if(nav) nav.style.display = isAvail ? "none" : "";   // Prev/Next/date controls drive Month + Timeline
+    // "Custom range" is timeline-only — the month view always shows one whole month
+    const cr = document.getElementById("calCustomRangeBtn"); if(cr) cr.style.display = view === "month" ? "none" : "";
+    if(isAvail){ renderAvailability(); return; }
+    if(view === "month"){
+        calSetMonth(rangeStart);
+        renderSummary(); renderMonth(); renderTable();
+        return;
+    }
+    if(typeof renderTimeline === "function") renderTimeline();   // reflow the timeline when coming back
+}
+
+/* ---------- Calendar · Month view ----------
+   One cell per day, one pill per booking. The pill keeps every signal the timeline bar carries:
+   its haven's colour (lighter = AM, darker = PM), a payment dot, and the red "missing photo/ID"
+   flag — so nothing is lost by reading the month instead of the timeline. */
+function renderMonth(){
+    HAVENS = havenNames();                                   // stay in sync with the Havens page
+    const grid = document.getElementById("mcGrid"); if(!grid) return;
+    const y = rangeStart.getFullYear(), m = rangeStart.getMonth();
+    const rl = document.getElementById("rangeLabel"); if(rl) rl.textContent = MONTHS[m] + " " + y;
+    const dows = document.getElementById("mcDows");
+    if(dows) dows.innerHTML = ["Sun","Mon","Tue","Wed","Thu","Fri","Sat"]
+        .map(function(d){ return '<div class="mc-dow">' + d + "</div>"; }).join("");
+
+    // which havens this view may show: the filter dropdown, or a scoped partner's own haven
+    let list = calHaven ? HAVENS.filter(function(h){ return h === calHaven; }) : HAVENS.slice();
+    if(window.__PARTNER__ && !window.__PARTNER__.superAdmin && window.__PARTNER__.haven){
+        list = HAVENS.filter(function(h){ return h === window.__PARTNER__.haven; });
+    }
+    const allowed = new Set(list);
+
+    const todayIso = iso(today());
+    const firstDow = new Date(y, m, 1).getDay();
+    const dim = new Date(y, m + 1, 0).getDate();
+    let cells = "";
+    for(let i = 0; i < firstDow; i++) cells += '<div class="mc-cell empty"></div>';
+    for(let d = 1; d <= dim; d++){
+        const di = iso(new Date(y, m, d));
+        const past = di < todayIso ? " past" : "";
+        const isToday = di === todayIso ? " today" : "";
+        const dayBk = bookings.filter(function(b){
+            if(!b || b.cancelled) return false;                  // cancelled → haven is free, don't show
+            if(!allowed.has(b.haven)) return false;
+            if(!bkMatchesSearch(b, calSearch)) return false;      // shared calendar search
+            if(!b.checkin) return false;
+            // a same-day (6h/10h) stay occupies its one day; an overnight runs up to (not incl.) check-out
+            const co = b.checkout > b.checkin ? b.checkout : iso(addDays(new Date(b.checkin + "T00:00:00"), 1));
+            return b.checkin <= di && di < co;
+        }).sort(function(a, c){ return HAVENS.indexOf(a.haven) - HAVENS.indexOf(c.haven); });   // group by haven
+
+        const pills = dayBk.map(function(b){
+            const dotc = STATUS_COLOR[statusOf(b)] || "#999";
+            const nm = (b.fbName || primaryName(b) || "Guest") + (b.slot ? " (" + (b.slot === "morning" ? "AM" : "PM") + ")" : "");
+            const tip = b.haven + " • " + guestNames(b) + " • " + fmt(b.checkin) + (b.checkout > b.checkin ? "→" + fmt(b.checkout) : "")
+                      + (b.slot ? " • " + slotLabel(b.slot) : "") + " • " + peso(paidOf(b)) + "/" + peso(b.total);
+            const flag = (typeof bookingNeedsPhoto === "function" && bookingNeedsPhoto(b))
+                ? '<span class="bar-flag" title="' + escAttr(bookingFlagTitle(b)) + '"></span>' : "";
+            return '<span class="mc-pill" style="background:' + havenColor(b) + '" title="' + escAttr(tip) + '"'
+                 + ' onclick="openModal(' + b.id + ')"><i class="mc-dot" style="background:' + dotc + '"></i>'
+                 + '<span class="mc-nm">' + escHtml(nm) + "</span>" + flag + "</span>";
+        }).join("");
+        cells += '<div class="mc-cell' + past + isToday + '"><div class="mc-num">' + d + "</div>" + pills + "</div>";
+    }
+    grid.innerHTML = cells;
 }
 // availability date picker (same date-pill + mini-calendar as the rest of the app)
 let availDateSel = null, availPickerMonth = null;
@@ -4688,7 +4808,7 @@ document.addEventListener("click", function(e){
 function renderAvailability(){
     if(!availDateSel) availDateSel = iso(today());
     const D = availDateSel;
-    const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmt(D);
+    const lbl = document.getElementById("availDateLabel"); if(lbl) lbl.textContent = fmtDow(D);
     const dayAbs = Math.round(new Date(D + "T00:00:00").getTime() / 60000);
     const dayEnd = dayAbs + 1440;
     let floor = dayAbs + EARLIEST_CHECKIN_MIN;   // can't check in before 9 AM on the day
@@ -5037,11 +5157,21 @@ function cssEscape(s){ return s.replace(/"/g, '\\"'); }
 
 function shiftWeek(dir){
     closePicker();
+    if(calView === "month"){   // month view pages a whole month at a time
+        calSetMonth(new Date(rangeStart.getFullYear(), rangeStart.getMonth() + dir, 1));
+        renderSummary(); renderMonth(); renderTable();
+        return;
+    }
     viewMode = "custom";
     rangeStart = addDays(rangeStart, dir*viewDays); renderSummary(); renderTimeline(); renderTable();
 }
 function showToday(){
     closePicker();
+    if(calView === "month"){   // "Today" in month view = jump to the month containing today
+        calSetMonth(today());
+        renderSummary(); renderMonth(); renderTable();
+        return;
+    }
     viewMode = "today";
     viewDays = 1; filterToWindow = true; rangeStart = today(); renderSummary(); renderTimeline(); renderTable();
 }
@@ -5062,7 +5192,7 @@ function showTomorrow(){
 }
 function setCalHaven(v){
     calHaven = v;
-    renderTimeline(); // only the calendar rows change; table keeps its own haven filter
+    calRerender(); // only the calendar changes; table keeps its own haven filter
 }
 function setCalSearch(v){
     calSearch = (v || "").toLowerCase().trim();
@@ -5078,20 +5208,20 @@ function setCalSearch(v){
             });
             if(!inWindow){
                 const earliest = matches.map(b => b.checkin).filter(Boolean).sort()[0];
-                if(earliest) rangeStart = new Date(earliest + "T00:00:00");
+                if(earliest){
+                    rangeStart = new Date(earliest + "T00:00:00");
+                    if(calView === "month") calSetMonth(rangeStart);   // jump to that booking's MONTH, not a 7-day window
+                }
             }
         }
     }
-    renderTimeline();   // filter the timeline bars to matching bookings
+    calRerender();   // filter the visible calendar to matching bookings
 }
 function showThisMonth(){
     closePicker();
     const t = today();
-    viewMode = "month";
-    rangeStart = new Date(t.getFullYear(), t.getMonth(), 1);        // 1st of this month
-    viewDays = new Date(t.getFullYear(), t.getMonth() + 1, 0).getDate(); // days in this month
-    filterToWindow = true;
-    renderSummary(); renderTimeline(); renderTable();
+    calSetMonth(t);
+    renderSummary(); calRerender(); renderTable();
 }
 
 /* ---------- remember the calendar view across refreshes ---------- */
@@ -5225,6 +5355,13 @@ function hoverDay(cellIso){
 }
 
 function applyRange(startIso, endIso){
+    if(calView === "month"){
+        // the month view always shows a whole month — jump to the month holding the picked date
+        calSetMonth(new Date(startIso + "T00:00:00"));
+        closePicker();
+        renderSummary(); renderMonth(); renderTable();
+        return;
+    }
     viewMode = "custom";
     rangeStart = new Date(startIso + "T00:00:00");
     viewDays = daysBetween(startIso, endIso) + 1; // inclusive (1 = single date)
@@ -9202,15 +9339,20 @@ function renderLegend(){
         const c = havenColors(h);
         return `<span><span class="dot" style="background:${c.am}"></span>${h}</span>`;
     }).join("");
+    const pay = `(<b style="color:#2e9e5b">paid</b> / <b style="color:#e0a800">partial</b> / <b style="color:#d63a4f">unpaid</b>)`;
     document.getElementById("legend").innerHTML = havens +
-        `<span class="muted">Lighter = AM · darker = PM · left stripe = payment ` +
-        `(<b style="color:#2e9e5b">paid</b> / <b style="color:#e0a800">partial</b> / <b style="color:#d63a4f">unpaid</b>)</span>`;
+        `<span class="muted">Lighter = AM · darker = PM · left stripe = payment ${pay}</span>`;
+    // the month view carries the same signals, but payment shows as a DOT on the pill, not a stripe
+    const lm = document.getElementById("legendMonth");
+    if(lm) lm.innerHTML = havens +
+        `<span class="muted">Lighter = AM · darker = PM · dot = payment ${pay} · ` +
+        `<span style="display:inline-block;width:7px;height:7px;border-radius:50%;background:#e01e37;box-shadow:0 0 0 1.5px #fff;vertical-align:middle;"></span> = missing proof/ID</span>`;
 }
 
 function renderAll(){
     renderToday();
     renderSummary();
-    renderTimeline();
+    calRerender();   // draw whichever calendar view is active (Month by default)
     renderTable();
     if(typeof updateApprovalBadge === "function") updateApprovalBadge();
     if(typeof updateDepositBadge === "function") updateDepositBadge();
@@ -9222,6 +9364,8 @@ fillHavenSelectors();
 renderLegend();
 restoreView();
 renderAll();
+// open the calendar on the view last used (Month is the default for everyone else)
+try{ calTab(localStorage.getItem("shph_cal_view") || "month"); }catch(e){ calTab("month"); }
 document.getElementById("currentUserLabel").textContent = "Logged in as " + currentUser();
 window.addEventListener("resize", renderTimeline);
 
