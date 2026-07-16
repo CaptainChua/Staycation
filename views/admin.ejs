@@ -133,6 +133,7 @@ async function login(){
         (u.name || "").toLowerCase() === username.toLowerCase() && u.password === password);
 
     if(match){
+        localStorage.removeItem("shph_partner_session");   // the two sessions are mutually exclusive
         localStorage.setItem("shph_current_user", match.name);
         logLogin(match.name);
         window.location.href = "/dashboard.html";
@@ -151,6 +152,7 @@ async function login(){
                 body: JSON.stringify(users)
             });
         } catch(e){ /* localStorage still holds it */ }
+        localStorage.removeItem("shph_partner_session");   // the two sessions are mutually exclusive
         localStorage.setItem("shph_current_user", adminUser.name);
         logLogin(adminUser.name);
         window.location.href = "/dashboard.html";

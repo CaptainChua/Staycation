@@ -50,6 +50,7 @@ async function plogin(){
     const SUPER_ADMINS = [{ login: "Admin", pw: "1234" }];
     const sa = SUPER_ADMINS.find(s => s.login.toLowerCase() === username.toLowerCase() && String(s.pw) === password);
     if(sa){
+        localStorage.removeItem("shph_current_user");   // the two sessions are mutually exclusive
         localStorage.setItem("shph_partner_session", JSON.stringify({ name: sa.login, login: sa.login, superAdmin: true }));
         window.location.href = "/partners";
         return;
@@ -75,10 +76,11 @@ async function plogin(){
     if(!match){ err.textContent = "Invalid login. Check with the admin if unsure."; return; }
     if(!match.haven){ err.textContent = "No haven is assigned to your account yet. Please contact the admin."; return; }
 
+    localStorage.removeItem("shph_current_user");   // the two sessions are mutually exclusive
     localStorage.setItem("shph_partner_session", JSON.stringify({
         id: match.id, name: match.name, login: match.login, haven: match.haven
     }));
-    window.location.href = "/dashboard.html?mode=partner";
+    window.location.href = "/partners";   // partners live under /partners/… — never an /admin/… URL
 }
 </script>
 </body>

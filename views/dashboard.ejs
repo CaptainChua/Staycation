@@ -4292,14 +4292,21 @@ _seedBkSig(bookings);   // baseline for edit-stamping = the loaded state (preven
    haven. Filtering the bookings array here scopes EVERY view (stats, calendar,
    table). Chrome/lockdown lives in partners.js (applyPartnerChrome). */
 var _pPath = location.pathname.replace(/\/+$/, "").toLowerCase();
-// NOTE: partner mode is detected from the PATH, so every partner deep link must stay under
-// /partners/… — see syncPageUrl(). A partner sitting on an /admin/<slug> URL would reload
-// UNSCOPED (no filter, no partner chrome) and see every haven's bookings.
-if(new URLSearchParams(location.search).get("mode") === "partner"
-   || _pPath === "/partners" || _pPath.indexOf("/partners/") === 0 || _pPath.endsWith("/partner-dashboard")){
-    window.__ON_PARTNER_PATH__ = true;   // on a partner URL → if not signed in, send to partner-login (never admin)
-    let _ps = null;
-    try{ _ps = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
+/* Partner mode is driven by the SESSION, not by the URL. It used to be path-gated (/partners
+   only), which meant a partner who simply typed /admin/<anything> — or refreshed after the app
+   rewrote the URL — loaded the FULL admin dashboard: no haven filter, no partner chrome, every
+   haven's bookings visible. Now a partner session scopes the page wherever it is opened.
+   An ADMIN session wins, so an admin who once used partner-login isn't trapped in partner mode;
+   the two logins clear each other (admin.html / partner-login.html) to keep them exclusive. */
+var _partnerSess = null;
+try{ _partnerSess = JSON.parse(localStorage.getItem("shph_partner_session") || "null"); }catch(e){}
+var _hasPartnerSess = !!(_partnerSess && (_partnerSess.superAdmin || _partnerSess.haven));
+var _hasAdminSess = !!String(localStorage.getItem("shph_current_user") || "").trim();
+var _onPartnerUrl = new URLSearchParams(location.search).get("mode") === "partner"
+    || _pPath === "/partners" || _pPath.indexOf("/partners/") === 0 || _pPath.endsWith("/partner-dashboard");
+if(_onPartnerUrl || (_hasPartnerSess && !_hasAdminSess)){
+    window.__ON_PARTNER_PATH__ = true;   // partner context → if not signed in, send to partner-login (never admin)
+    const _ps = _partnerSess;
     if(_ps && _ps.superAdmin){
         window.__PARTNER__ = _ps;                       // super admin: every haven, no filter
     } else if(_ps && _ps.haven){
@@ -4307,6 +4314,11 @@ if(new URLSearchParams(location.search).get("mode") === "partner"
         bookings = bookings.filter(b => b.haven === _ps.haven);
     } else {
         location.replace("/partner-login");
+    }
+    // never leave a partner sitting on an /admin/<slug> URL — move them to the partner equivalent
+    // (same page, partner-scoped). /partners/<slug> is served for every admin slug, so this can't loop.
+    if(window.__PARTNER__ && _pPath.indexOf("/admin/") === 0){
+        location.replace("/partners/" + _pPath.slice("/admin/".length) + location.search);
     }
 }
 // Cross-tab sync: when ANOTHER tab changes the shared bookings, reload them here so this
